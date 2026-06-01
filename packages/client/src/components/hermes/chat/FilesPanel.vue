@@ -3,7 +3,8 @@ import { ref, onMounted, watch } from 'vue'
 import { useFilesStore } from '@/stores/hermes/files'
 import { useChatStore } from '@/stores/hermes/chat'
 import { useI18n } from 'vue-i18n'
-import { NButton } from 'naive-ui'
+import { NButton, useMessage } from 'naive-ui'
+import { setSessionWorkspace } from '@/api/hermes/sessions'
 import FileTree from '@/components/hermes/files/FileTree.vue'
 import FileBreadcrumb from '@/components/hermes/files/FileBreadcrumb.vue'
 import FileToolbar from '@/components/hermes/files/FileToolbar.vue'
@@ -18,6 +19,24 @@ import type { FileEntry } from '@/api/hermes/files'
 const filesStore = useFilesStore()
 const chatStore = useChatStore()
 const { t } = useI18n()
+const message = useMessage()
+
+// Set the folder currently shown in the panel as the active conversation's
+// working directory (cwd). This is the easy, discoverable way to point the
+// agent at a project folder.
+async function setAsWorkspace() {
+  const session = chatStore.activeSession
+  if (!session) { message.warning(t('files.noActiveSession')); return }
+  const folder = filesStore.currentPath
+  if (!folder) return
+  try {
+    await setSessionWorkspace(session.id, folder)
+    session.workspace = folder
+    message.success(t('files.workspaceSet', { path: folder }))
+  } catch (err: any) {
+    message.error(err?.message || t('files.workspaceSetFailed'))
+  }
+}
 
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null)
 const showUpload = ref(false)
@@ -91,6 +110,15 @@ watch(() => chatStore.activeSession?.workspace, (ws) => {
           @show-new-folder="handleShowNewFolder"
           @show-upload="showUpload = true"
         />
+        <NButton
+          size="small"
+          type="primary"
+          secondary
+          :disabled="!filesStore.currentPath || !chatStore.activeSession"
+          @click="setAsWorkspace"
+        >
+          {{ t('files.setAsWorkspace') }}
+        </NButton>
       </div>
       <FileBreadcrumb />
       <div class="files-content">

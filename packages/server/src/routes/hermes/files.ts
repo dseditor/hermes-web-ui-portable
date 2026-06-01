@@ -55,7 +55,20 @@ fileRoutes.get('/api/hermes/files/list', async (ctx) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
       return a.name.localeCompare(b.name)
     })
-    ctx.body = { entries: entries.map(entry => withAbsolutePath(ctx, entry)), path: relativePath, absolutePath: absPath }
+    const { dirname } = await import('path')
+    const parentPath = dirname(absPath)
+    const parent = parentPath === absPath ? '' : parentPath
+    const drives: string[] = []
+    if (process.platform === 'win32') {
+      const { existsSync } = await import('fs')
+      for (let c = 67; c <= 90; c++) {
+        const root = `${String.fromCharCode(c)}:\\`
+        if (existsSync(root)) drives.push(root)
+      }
+    } else {
+      drives.push('/')
+    }
+    ctx.body = { entries: entries.map(entry => withAbsolutePath(ctx, entry)), path: relativePath, absolutePath: absPath, parent, drives }
   } catch (err: any) {
     handleError(ctx, err)
   }

@@ -19,11 +19,11 @@ export interface FileStat {
   permissions?: string
 }
 
-export async function listFiles(path: string = ''): Promise<{ entries: FileEntry[]; path: string; absolutePath?: string }> {
+export async function listFiles(path: string = ''): Promise<{ entries: FileEntry[]; path: string; absolutePath?: string; parent?: string; drives?: string[] }> {
   const params = new URLSearchParams()
   if (path) params.set('path', path)
   const query = params.toString()
-  return request<{ entries: FileEntry[]; path: string; absolutePath?: string }>(`/api/hermes/files/list${query ? `?${query}` : ''}`)
+  return request<{ entries: FileEntry[]; path: string; absolutePath?: string; parent?: string; drives?: string[] }>(`/api/hermes/files/list${query ? `?${query}` : ''}`)
 }
 
 export async function statFile(path: string): Promise<FileStat> {

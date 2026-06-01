@@ -74,6 +74,8 @@ function isAffected(targetPath: string, changedPath: string, changedIsDir: boole
 
 export const useFilesStore = defineStore('files', () => {
   const currentPath = ref('')
+  const parent = ref('')
+  const drives = ref<string[]>([])
   const entries = ref<FileEntry[]>([])
   const loading = ref(false)
   const sortBy = ref<'name' | 'size' | 'modTime'>('name')
@@ -138,6 +140,8 @@ export const useFilesStore = defineStore('files', () => {
       // Server resolves '' to the home dir and returns the real absolute path;
       // adopt it so navigateUp / breadcrumb work from the actual location.
       if (result.absolutePath) currentPath.value = result.absolutePath
+      parent.value = result.parent || ''
+      drives.value = result.drives || []
     } catch (err) {
       console.error('Failed to fetch files:', err)
       throw err
@@ -241,7 +245,7 @@ export const useFilesStore = defineStore('files', () => {
   })
 
   return {
-    currentPath, entries, loading, sortBy, sortOrder,
+    currentPath, parent, drives, entries, loading, sortBy, sortOrder,
     editingFile, previewFile,
     pathSegments, sortedEntries, hasUnsavedChanges,
     fetchEntries, navigateTo, navigateUp,
