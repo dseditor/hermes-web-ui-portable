@@ -185,6 +185,9 @@ const speech = useGlobalSpeech();
 const voiceSettings = useVoiceSettings();
 const assistantProfileName = computed(() => chatStore.activeSession?.profile || profilesStore.activeProfileName || "default");
 const assistantProfileAvatar = computed(() => profilesStore.profiles.find(profile => profile.name === assistantProfileName.value)?.avatar);
+// Default agent avatar (future-architecture mark) when a profile has no custom
+// avatar — gives the product a consistent AI identity out of the box.
+const assistantAvatar = computed(() => assistantProfileAvatar.value || { type: 'image' as const, dataUrl: '/agent-avatar.png' });
 
 // Copy entire bubble content
 const copyableContent = computed(() => {
@@ -779,7 +782,7 @@ onBeforeUnmount(() => {
           v-if="message.role === 'assistant'"
           class="msg-avatar"
           :name="assistantProfileName"
-          :avatar="assistantProfileAvatar"
+          :avatar="assistantAvatar"
           :size="40"
         />
         <div class="msg-content" :class="message.role">
