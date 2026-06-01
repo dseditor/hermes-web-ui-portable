@@ -11,6 +11,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/pair',
+      name: 'pair',
+      component: () => import('@/views/PairView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/hermes/chat',
       name: 'hermes.chat',
       component: () => import('@/views/hermes/ChatView.vue'),
@@ -132,6 +138,12 @@ const router = createRouter({
       path: '/hermes/mcp',
       name: 'hermes.mcp',
       component: () => import('@/views/hermes/McpManagerView.vue'),
+      meta: { requiresSuperAdmin: true },
+    },
+    {
+      path: '/hermes/pairing',
+      name: 'hermes.pairing',
+      component: () => import('@/views/hermes/PairingView.vue'),
       meta: { requiresSuperAdmin: true },
     },
   ],

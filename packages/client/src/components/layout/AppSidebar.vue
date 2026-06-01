@@ -313,6 +313,19 @@ function openChangelog() {
             </svg>
             <span>{{ t("sidebar.profiles") }}</span>
           </RouteLinkItem>
+          <RouteLinkItem v-if="isSuperAdmin" class="nav-item" :to="{ name: 'hermes.pairing' }" :active="selectedKey === 'hermes.pairing'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <path d="M14 14h3v3" />
+              <path d="M21 14v.01" />
+              <path d="M21 21v.01" />
+              <path d="M17 21h.01" />
+              <path d="M21 17.5v.01" />
+            </svg>
+            <span>{{ t("sidebar.pairing") }}</span>
+          </RouteLinkItem>
           <RouteLinkItem class="nav-item" :to="{ name: 'hermes.settings' }" :active="selectedKey === 'hermes.settings'">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3" />
