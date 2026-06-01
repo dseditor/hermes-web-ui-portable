@@ -71,7 +71,6 @@ function requestToken(ctx: Context): string {
 }
 
 const SERVER_TOKEN_MEDIA_PATHS = new Set([
-  '/api/hermes/media/apikey-image-generate',
   '/api/hermes/media/grok-image-to-video',
 ])
 

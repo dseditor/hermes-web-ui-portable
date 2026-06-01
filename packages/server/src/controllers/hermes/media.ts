@@ -8,9 +8,6 @@ import { readConfigYamlForProfile } from '../../services/config-helpers'
 const XAI_VIDEO_GENERATIONS_URL = 'https://api.x.ai/v1/videos/generations'
 const XAI_VIDEO_STATUS_URL = 'https://api.x.ai/v1/videos'
 const XAI_VIDEO_MODEL = 'grok-imagine-video'
-const APIKEY_IMAGE_PROVIDER = 'fun-codex'
-const APIKEY_IMAGE_MODEL = 'gpt-image-2'
-const APIKEY_IMAGE_TO_IMAGE_MODEL = 'gpt-5.4-mini'
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024
 const DEFAULT_POLL_INTERVAL_MS = 5000
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -20,13 +17,6 @@ type AuthJson = {
   credential_pool?: Record<string, any[]>
 }
 
-type ApiKeyImageMode = 'text' | 'image' | 'edit'
-
-type FunCodexProvider = {
-  apiKey: string
-  baseUrl: string
-  model: string
-}
 
 function requestedProfileName(ctx: Context): string {
   const headerProfile = ctx.get('x-hermes-profile')
@@ -72,28 +62,7 @@ function readJsonFile(path: string): any {
   }
 }
 
-function buildApiUrl(baseUrl: string, pathWithV1: string): string {
-  const base = (baseUrl || 'https://api.apikey.fun/v1').replace(/\/+$/, '')
-  const apiPath = pathWithV1.startsWith('/') ? pathWithV1 : `/${pathWithV1}`
-  if (base.endsWith('/v1') && apiPath.startsWith('/v1/')) return `${base}${apiPath.slice(3)}`
-  return `${base}${apiPath}`
-}
 
-async function resolveFunCodexProvider(profile: string): Promise<FunCodexProvider | null> {
-  const hermesConfig = await readConfigYamlForProfile(profile)
-  const customProviders = Array.isArray(hermesConfig.custom_providers)
-    ? hermesConfig.custom_providers as any[]
-    : []
-  const provider = customProviders.find(entry => String(entry?.name || '').trim() === APIKEY_IMAGE_PROVIDER)
-  const apiKey = String(provider?.api_key || '').trim()
-  const baseUrl = String(provider?.base_url || '').trim()
-  if (!provider || !apiKey || !baseUrl) return null
-  return {
-    apiKey,
-    baseUrl,
-    model: String(provider?.model || '').trim(),
-  }
-}
 
 function resolveXaiToken(profile: string): { token: string; source: string } | null {
   const envToken = String(process.env.XAI_API_KEY || '').trim()
@@ -275,228 +244,6 @@ export function defaultImageOutputPath(requestId: string, index = 0): string {
   const safeRequestId = requestId.replace(/[^A-Za-z0-9_-]/g, '_') || `image_${Date.now()}`
   const suffix = index > 0 ? `-${index + 1}` : ''
   return join(config.appHome, 'media', `${safeRequestId}${suffix}.png`)
-}
-
-function normalizeImageMode(value: unknown): ApiKeyImageMode {
-  const mode = String(value || 'text').trim().toLowerCase()
-  if (mode === 'text' || mode === 'image' || mode === 'edit') return mode
-  const err: any = new Error('mode must be one of text, image, or edit')
-  err.status = 400
-  throw err
-}
-
-function normalizePositiveInt(value: unknown, fallback: number, key: string): number {
-  const parsed = Number(value || fallback)
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    const err: any = new Error(`${key} must be a positive number`)
-    err.status = 400
-    throw err
-  }
-  return Math.floor(parsed)
-}
-
-function collectImageBase64(event: any, images: string[] = []): string[] {
-  if (!event || typeof event !== 'object') return images
-  for (const key of ['b64_json', 'base64', 'image_base64', 'partial_image_b64']) {
-    if (typeof event[key] === 'string' && event[key]) images.push(event[key])
-  }
-  for (const item of event.data || []) collectImageBase64(item, images)
-  for (const item of event.response?.output || []) {
-    if (typeof item?.result === 'string' && item.result) images.push(item.result)
-    collectImageBase64(item, images)
-  }
-  if (typeof event.item?.result === 'string' && event.item.result) images.push(event.item.result)
-  return images
-}
-
-function isPartialImageEvent(event: any): boolean {
-  return event?.type === 'image_generation.partial_image' ||
-    event?.type === 'response.image_generation_call.partial_image'
-}
-
-function throwIfImageStreamError(event: any): void {
-  if (event?.type !== 'error' && event?.type !== 'response.failed') return
-  const err: any = new Error(event?.response?.error?.message || event?.error?.message || 'image generation failed')
-  err.status = 502
-  throw err
-}
-
-async function readSseImageResults(res: Response, limit: number): Promise<string[]> {
-  if (!res.body) throw new Error('image generation response is not readable')
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  const images: string[] = []
-  let buffer = ''
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const frames = buffer.split(/\r?\n\r?\n/)
-    buffer = frames.pop() || ''
-    for (const frame of frames) {
-      const data = frame
-        .split(/\r?\n/)
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).trimStart())
-        .join('\n')
-        .trim()
-      if (!data || data === '[DONE]') continue
-      const event = JSON.parse(data)
-      throwIfImageStreamError(event)
-      if (isPartialImageEvent(event)) continue
-      collectImageBase64(event, images)
-      if (images.length >= limit) return images.slice(0, limit)
-    }
-  }
-  return images.slice(0, limit)
-}
-
-async function requestApiKeyImage(provider: FunCodexProvider, mode: ApiKeyImageMode, body: any): Promise<string[]> {
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
-  if (!prompt) {
-    const err: any = new Error('prompt is required')
-    err.status = 400
-    throw err
-  }
-
-  const n = normalizePositiveInt(body.n, 1, 'n')
-  const timeoutMs = normalizePositiveInt(body.timeout_ms, DEFAULT_TIMEOUT_MS, 'timeout_ms')
-  const headers = {
-    Accept: 'text/event-stream',
-    Authorization: `Bearer ${provider.apiKey}`,
-  }
-
-  let res: Response
-  if (mode === 'text') {
-    res = await fetch(buildApiUrl(provider.baseUrl, '/v1/images/generations'), {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
-        model: body.model || APIKEY_IMAGE_MODEL,
-        prompt,
-        n,
-        size: body.size || '1024x1024',
-        quality: body.quality || 'auto',
-        stream: true,
-        response_format: 'b64_json',
-      }),
-    })
-  } else if (mode === 'image') {
-    res = await fetch(buildApiUrl(provider.baseUrl, '/v1/responses'), {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
-        model: body.model || provider.model || APIKEY_IMAGE_TO_IMAGE_MODEL,
-        stream: true,
-        input: [{
-          role: 'user',
-          content: [
-            { type: 'input_text', text: prompt },
-            { type: 'input_image', image_url: normalizeImageInput(body) },
-          ],
-        }],
-        tools: [{
-          type: 'image_generation',
-          model: body.image_model || APIKEY_IMAGE_MODEL,
-          size: body.size || '1024x1024',
-          quality: body.quality || 'auto',
-          output_format: body.output_format || 'png',
-        }],
-        tool_choice: { type: 'image_generation' },
-      }),
-    })
-  } else {
-    const image = await normalizeImageFile(body)
-    const imageBytes = new Uint8Array(image.buffer.byteLength)
-    imageBytes.set(image.buffer)
-    const form = new FormData()
-    form.append('image', new Blob([imageBytes.buffer], { type: image.mime }), image.name)
-    form.append('prompt', prompt)
-    form.append('model', body.model || APIKEY_IMAGE_MODEL)
-    form.append('n', String(n))
-    form.append('quality', body.quality || 'auto')
-    form.append('size', body.size || '1024x1024')
-    form.append('stream', 'true')
-    form.append('response_format', 'b64_json')
-    res = await fetch(buildApiUrl(provider.baseUrl, '/v1/images/edits'), {
-      method: 'POST',
-      headers,
-      signal: AbortSignal.timeout(timeoutMs),
-      body: form,
-    })
-  }
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    const err: any = new Error(`image generation request failed: ${res.status} ${detail || res.statusText}`)
-    err.status = res.status === 401 || res.status === 403 ? 502 : 502
-    throw err
-  }
-  const images = await readSseImageResults(res, n)
-  if (images.length === 0) {
-    const err: any = new Error('image generation stream ended without image data')
-    err.status = 502
-    throw err
-  }
-  return images
-}
-
-function saveGeneratedImages(images: string[], requestedOutputPath?: string): string[] {
-  return images.map((image, index) => {
-    const outputPath = requestedOutputPath && images.length === 1
-      ? requestedOutputPath
-      : requestedOutputPath
-        ? requestedOutputPath.replace(/(\.[^.\\/]+)?$/, `${index > 0 ? `-${index + 1}` : ''}$1`)
-        : defaultImageOutputPath(`image_${Date.now()}`, index)
-    mkdirSync(dirname(outputPath), { recursive: true })
-    writeFileSync(outputPath, Buffer.from(image, 'base64'))
-    return outputPath
-  })
-}
-
-export async function apiKeyImageGenerate(ctx: Context) {
-  let profile: string
-  try {
-    profile = resolveMediaProfile(ctx)
-  } catch (err: any) {
-    ctx.status = err.status || 400
-    ctx.body = { error: err.message || String(err), code: err.code || 'invalid_profile' }
-    return
-  }
-
-  const provider = await resolveFunCodexProvider(profile)
-  if (!provider) {
-    ctx.status = 401
-    ctx.body = {
-      error: `Missing fun-codex provider in profile "${profile}" config.yaml.`,
-      code: 'missing_fun_codex_provider',
-    }
-    return
-  }
-
-  const body = ctx.request.body as any
-  try {
-    const mode = normalizeImageMode(body.mode)
-    const images = await requestApiKeyImage(provider, mode, body)
-    const requestedOutputPath = typeof body.output_path === 'string' ? body.output_path.trim() : ''
-    const outputPaths = saveGeneratedImages(images, requestedOutputPath || undefined)
-    ctx.body = {
-      ok: true,
-      mode,
-      output_paths: outputPaths,
-      provider: APIKEY_IMAGE_PROVIDER,
-      base_url: provider.baseUrl,
-      profile,
-    }
-  } catch (err: any) {
-    ctx.status = err.status || 500
-    ctx.body = {
-      error: err.message || String(err),
-      code: err.code || 'image_generation_failed',
-    }
-  }
 }
 
 async function requestXaiJson(url: string, token: string, init: RequestInit = {}): Promise<any> {
