@@ -82,7 +82,14 @@ function safeNetworkInterfaces() {
 }
 
 function startRuntimeServicesAfterListen(): void {
+  // Frontend-only mode: no local Hermes core, so don't try to start/check any
+  // local profile gateways or the agent bridge — everything is remote.
+  const remoteOnly = (process.env.HERMES_REMOTE_API_URL || '').trim().length > 0
   void (async () => {
+    if (remoteOnly) {
+      console.log('[bootstrap] remote backend mode — skipping local profile gateways')
+      return
+    }
     try {
       await ensureProfileGatewaysRunning()
       console.log('[bootstrap] profile gateways checked')
@@ -93,6 +100,12 @@ function startRuntimeServicesAfterListen(): void {
   })()
 
   void (async () => {
+    // Frontend-only mode (HERMES_REMOTE_API_URL set): chat is forwarded to a
+    // remote Hermes API server, so the local Python agent bridge is not needed.
+    if ((process.env.HERMES_REMOTE_API_URL || '').trim()) {
+      console.log('[bootstrap] remote backend mode — skipping local agent bridge')
+      return
+    }
     try {
       agentBridgeManager = await startAgentBridgeManager()
       console.log('[bootstrap] agent bridge started')

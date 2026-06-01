@@ -24,9 +24,12 @@ import { handleMessage } from './message-format'
 import { countTokens, SUMMARY_PREFIX } from '../../../lib/context-compressor'
 import { getCompressionSnapshot } from '../../../db/hermes/compression-snapshot'
 import type { ContentBlock, SessionState, ChatRunSource } from './types'
+import { isRemoteBackend, remoteApiUrl, remoteApiKey } from './remote-config'
 
 export function resolveRunSource(_source?: string, _sessionId?: string): ChatRunSource {
-  return 'cli'
+  // Frontend-only mode: forward to a remote Hermes API server (/v1/responses).
+  // Otherwise keep the default local CLI bridge path.
+  return isRemoteBackend() ? 'api_server' : 'cli'
 }
 
 export async function loadSessionStateFromDb(sid: string, _sessionMap: Map<string, SessionState>): Promise<SessionState> {
@@ -108,8 +111,8 @@ export async function handleApiRun(
     }
   }
 
-  const upstream = ''
-  const apiKey = undefined
+  const upstream = remoteApiUrl()
+  const apiKey = remoteApiKey() || undefined
 
   const runMarker = session_id
     ? `resp_run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`

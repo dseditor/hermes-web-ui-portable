@@ -1,0 +1,43 @@
+# ============================================================================
+#  Hermes Web UI (frontend-only) -> remote hermes-agent
+#
+#  Runs the optimized web UI as a pure frontend and connects it to a Hermes
+#  agent that runs ELSEWHERE (another container / another machine) through its
+#  OpenAI-compatible API server.
+#
+#  Quick start on the Linux host:
+#    1. cp .env.remote.example .env   and fill in the two HERMES_REMOTE_* values
+#    2. docker compose -f docker-compose.remote.yml up -d --build
+#    3. open http://<this-host>:8648   (default login: admin / 123456 — change it)
+#
+#  Update later:
+#    git pull && docker compose -f docker-compose.remote.yml up -d --build
+# ============================================================================
+services:
+  hermes-webui:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: ${WEBUI_IMAGE:-hermes-web-ui-frontend:latest}
+    container_name: ${WEBUI_CONTAINER_NAME:-hermes-webui-frontend}
+    ports:
+      - "${PORT:-8648}:8648"
+    volumes:
+      # Persist web-ui DB / auth token / chat history across restarts.
+      - ${WEBUI_DATA_DIR:-./webui_data}:/data
+    environment:
+      - PORT=8648
+      - HERMES_WEB_UI_HOME=/data
+      # --- Remote backend (REQUIRED) ---
+      # URL of the remote hermes-agent's API server (API_SERVER_ENABLED=true).
+      - HERMES_REMOTE_API_URL=${HERMES_REMOTE_API_URL:?set HERMES_REMOTE_API_URL in .env}
+      # Bearer token — must equal the remote agent's API_SERVER_KEY.
+      - HERMES_REMOTE_API_KEY=${HERMES_REMOTE_API_KEY:?set HERMES_REMOTE_API_KEY in .env}
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+# If the remote hermes-agent runs as a container on THIS same host, you can
+# instead put both on a shared docker network and point
+# HERMES_REMOTE_API_URL at the agent's service name, e.g.
+#   HERMES_REMOTE_API_URL=http://hermes-agent:8642
