@@ -25,9 +25,10 @@ let mobileQuery: MediaQueryList | null = null
 let recommendationsRequestSeq = 0
 
 const recommendationsPath = computed(() => {
-  return String(locale.value).startsWith('zh')
-    ? '/skill-recommendations.zh.md'
-    : '/skill-recommendations.en.md'
+  const loc = String(locale.value)
+  if (loc === 'zh-TW' || loc === 'zh-Hant') return '/skill-recommendations.zh-TW.md'
+  if (loc.startsWith('zh')) return '/skill-recommendations.zh.md'
+  return '/skill-recommendations.en.md'
 })
 
 const selectedSkillData = computed(() => {
