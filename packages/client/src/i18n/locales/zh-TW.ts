@@ -186,6 +186,7 @@ export default {
     jobs: '任務',
     kanban: '看板',
     models: '模型',
+    modelsNotConfigured: '尚未設定模型，請先設定一個模型',
     profiles: '使用者',
     plugins: '插件',
     mcp: 'MCP',

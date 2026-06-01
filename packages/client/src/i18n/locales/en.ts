@@ -186,6 +186,7 @@ export default {
     jobs: 'Jobs',
     kanban: 'Kanban',
     models: 'Models',
+    modelsNotConfigured: 'No model configured yet — set one up first',
     profiles: 'Profiles',
     skills: 'Skills',
     plugins: 'Plugins',

@@ -29,6 +29,10 @@ const selectedKey = computed(() => {
 const isSuperAdmin = computed(() => isStoredSuperAdmin());
 const isVersionPreview = import.meta.env.VITE_HERMES_PREVIEW === '1';
 
+// When no model/provider has been configured at all, highlight the Models entry
+// so the user knows they still need to set one up.
+const noModelConfigured = computed(() => !appStore.selectedModel);
+
 function isNavActive(...names: string[]) {
   return names.includes(selectedKey.value);
 }
@@ -135,10 +139,20 @@ function openChangelog() {
             </svg>
             <span>{{ t("sidebar.search") }}</span>
           </button>
-          <a class="nav-item fun-link" href="https://apikey.fun/register?aff=LIBAPI" target="_blank" rel="noopener noreferrer">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span>{{ t('sidebar.apiRelay') }}</span>
-          </a>
+          <RouteLinkItem class="nav-item" :class="{ 'needs-model': noModelConfigured }" :to="{ name: 'hermes.models' }" :active="selectedKey === 'hermes.models'" :title="noModelConfigured ? t('sidebar.modelsNotConfigured') : undefined">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 1v4" />
+              <path d="M12 19v4" />
+              <path d="M1 12h4" />
+              <path d="M19 12h4" />
+              <path d="M4.22 4.22l2.83 2.83" />
+              <path d="M16.95 16.95l2.83 2.83" />
+              <path d="M4.22 19.78l2.83-2.83" />
+              <path d="M16.95 7.05l2.83-2.83" />
+            </svg>
+            <span>{{ t("sidebar.models") }}</span>
+          </RouteLinkItem>
         </div>
       </div>
 
@@ -205,20 +219,6 @@ function openChangelog() {
               <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
             </svg>
             <span>{{ t("sidebar.memory") }}</span>
-          </RouteLinkItem>
-          <RouteLinkItem class="nav-item" :to="{ name: 'hermes.models' }" :active="selectedKey === 'hermes.models'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v4" />
-              <path d="M12 19v4" />
-              <path d="M1 12h4" />
-              <path d="M19 12h4" />
-              <path d="M4.22 4.22l2.83 2.83" />
-              <path d="M16.95 16.95l2.83 2.83" />
-              <path d="M4.22 19.78l2.83-2.83" />
-              <path d="M16.95 7.05l2.83-2.83" />
-            </svg>
-            <span>{{ t("sidebar.models") }}</span>
           </RouteLinkItem>
         </div>
       </div>
@@ -905,7 +905,18 @@ function openChangelog() {
   }
 }
 
-.fun-link {
-  text-decoration: none;
+// Highlight the Models entry when no model/provider has been configured yet,
+// nudging the user to set one up.
+.nav-item.needs-model {
+  color: var(--warning);
+
+  svg {
+    stroke: var(--warning);
+  }
+
+  &:hover {
+    color: var(--warning);
+    background-color: rgba(var(--warning-rgb), 0.1);
+  }
 }
 </style>
