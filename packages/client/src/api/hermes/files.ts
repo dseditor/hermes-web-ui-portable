@@ -23,7 +23,7 @@ export async function listFiles(path: string = ''): Promise<{ entries: FileEntry
   const params = new URLSearchParams()
   if (path) params.set('path', path)
   const query = params.toString()
-  return request<{ entries: FileEntry[]; path: string }>(`/api/hermes/files/list${query ? `?${query}` : ''}`)
+  return request<{ entries: FileEntry[]; path: string; absolutePath?: string }>(`/api/hermes/files/list${query ? `?${query}` : ''}`)
 }
 
 export async function statFile(path: string): Promise<FileStat> {

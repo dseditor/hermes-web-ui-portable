@@ -94,8 +94,19 @@ export const useFilesStore = defineStore('files', () => {
 
   const pathSegments = computed(() => {
     if (!currentPath.value) return []
-    return currentPath.value.split('/').filter(Boolean)
+    return currentPath.value.split(/[\\/]+/).filter(Boolean)
   })
+
+  // Parent directory of an absolute path, cross-platform. Returns the same path
+  // when already at a filesystem / drive root (so "up" is a no-op there).
+  function parentOf(p: string): string {
+    const norm = p.replace(/[\\/]+$/, '')
+    const idx = Math.max(norm.lastIndexOf('/'), norm.lastIndexOf('\\'))
+    if (idx <= 0) return norm
+    const parent = norm.slice(0, idx)
+    if (/^[A-Za-z]:$/.test(parent)) return parent + '\\' // F: -> F:\
+    return parent || '/'
+  }
 
   const sortedEntries = computed(() => {
     const copy = [...entries.value]
@@ -124,6 +135,9 @@ export const useFilesStore = defineStore('files', () => {
     try {
       const result = await filesApi.listFiles(currentPath.value)
       entries.value = result.entries
+      // Server resolves '' to the home dir and returns the real absolute path;
+      // adopt it so navigateUp / breadcrumb work from the actual location.
+      if (result.absolutePath) currentPath.value = result.absolutePath
     } catch (err) {
       console.error('Failed to fetch files:', err)
       throw err
@@ -134,9 +148,7 @@ export const useFilesStore = defineStore('files', () => {
 
   function navigateTo(path: string) { return fetchEntries(path) }
   function navigateUp() {
-    const parts = currentPath.value.split('/').filter(Boolean)
-    parts.pop()
-    return fetchEntries(parts.join('/'))
+    return fetchEntries(parentOf(currentPath.value))
   }
 
   async function openEditor(filePath: string) {

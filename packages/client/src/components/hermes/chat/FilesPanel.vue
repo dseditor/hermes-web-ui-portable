@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useFilesStore } from '@/stores/hermes/files'
+import { useChatStore } from '@/stores/hermes/chat'
 import { useI18n } from 'vue-i18n'
 import { NButton } from 'naive-ui'
 import FileTree from '@/components/hermes/files/FileTree.vue'
@@ -15,6 +16,7 @@ import FileRenameModal from '@/components/hermes/files/FileRenameModal.vue'
 import type { FileEntry } from '@/api/hermes/files'
 
 const filesStore = useFilesStore()
+const chatStore = useChatStore()
 const { t } = useI18n()
 
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null)
@@ -46,8 +48,13 @@ function handleRename(entry: FileEntry) {
   showRenameModal.value = true
 }
 
+// Open the panel at the active session's working folder (cwd) when set, so the
+// files you see match where the agent actually works. Empty -> profile home.
 onMounted(() => {
-  filesStore.fetchEntries('')
+  filesStore.fetchEntries(chatStore.activeSession?.workspace || '')
+})
+watch(() => chatStore.activeSession?.workspace, (ws) => {
+  filesStore.fetchEntries(ws || '')
 })
 </script>
 

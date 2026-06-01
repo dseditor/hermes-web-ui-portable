@@ -118,18 +118,26 @@ export function isSensitivePath(relativePath: string): boolean {
  */
 export function resolveHermesPath(relativePath: string, profile?: string): string {
   const homeDir = homeDirForProfile(profile)
-  if (!relativePath || relativePath === '.' || relativePath === '/') {
+  if (!relativePath || relativePath === '.') {
     return homeDir
   }
+  // Absolute path → free filesystem navigation. The agent already has full
+  // filesystem access through its terminal/file tools, so the file browser is
+  // allowed to roam the same filesystem (still gated by auth). Only block the
+  // ".." escape trick; any concrete absolute path is accepted.
+  if (isAbsolute(relativePath)) {
+    const abs = resolve(normalizePlatformPath(relativePath))
+    if (normalize(abs).includes('..')) {
+      throw Object.assign(new Error('Invalid file path'), { code: 'invalid_path' })
+    }
+    return abs
+  }
+  // Relative path → resolved under the profile home directory (legacy callers).
   const normalized = normalize(relativePath).replace(/\\/g, '/')
-  if (normalized.startsWith('..') || normalized.includes('/../') || normalized.startsWith('/')) {
+  if (normalized.startsWith('..') || normalized.includes('/../')) {
     throw Object.assign(new Error('Invalid file path'), { code: 'invalid_path' })
   }
-  const resolved = resolve(homeDir, normalized)
-  if (!isPathWithin(resolved, homeDir)) {
-    throw Object.assign(new Error('Path traversal detected'), { code: 'invalid_path' })
-  }
-  return resolved
+  return resolve(homeDir, normalized)
 }
 
 // --- Local ---
@@ -166,10 +174,9 @@ export class LocalFileProvider implements FileProvider {
       try {
         const fullPath = resolve(p, entry.name)
         const s = await fsStat(fullPath)
-        const relPath = relativePathFromBase(fullPath, this.homeDir) ?? entry.name
         results.push({
           name: entry.name,
-          path: relPath,
+          path: fullPath,
           isDir: s.isDirectory(),
           size: s.size,
           modTime: s.mtime.toISOString(),
