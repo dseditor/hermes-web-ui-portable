@@ -7,9 +7,12 @@ import { findFirstUser } from '../db/hermes/users-store'
 import { issueUserJwt } from '../middleware/user-auth'
 
 function pairUrl(base: string, code: string): string {
-  // Code lives in the URL fragment so it is never sent to the server in logs
-  // and is invisible to link-preview crawlers that fetch the bare URL.
-  return `${base.replace(/\/+$/, '')}/pair#code=${code}`
+  // The SPA uses hash-history routing, so the route must live in the hash:
+  //   https://<tunnel>/#/pair?code=XXXX
+  // Everything after "#" stays client-side (never sent to the server in logs
+  // and invisible to link-preview crawlers that fetch the bare URL), so the
+  // code is still not leaked server-side.
+  return `${base.replace(/\/+$/, '')}/#/pair?code=${code}`
 }
 
 /**

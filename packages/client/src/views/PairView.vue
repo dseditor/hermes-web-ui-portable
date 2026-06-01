@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { NButton, NInput } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { setApiKey } from '@/api/client'
@@ -8,15 +8,19 @@ import { claimPairing } from '@/api/hermes/pairing'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 type State = 'idle' | 'claiming' | 'error'
 const state = ref<State>('idle')
 const code = ref('')
 const errorMsg = ref('')
 
-function readCodeFromHash(): string {
-  const hash = String(window.location.hash || '')
-  const m = hash.match(/code=([A-Za-z0-9]+)/)
+function readCode(): string {
+  // Primary: the route query within the hash (#/pair?code=XXXX)
+  const q = route.query.code
+  if (typeof q === 'string' && q) return q
+  // Fallback: scan the raw hash in case the link shape differs
+  const m = String(window.location.hash || '').match(/code=([A-Za-z0-9]+)/)
   return m ? m[1] : ''
 }
 
@@ -40,10 +44,10 @@ async function pair(rawCode: string) {
 }
 
 onMounted(() => {
-  const fromHash = readCodeFromHash()
-  if (fromHash) {
-    code.value = fromHash
-    void pair(fromHash)
+  const found = readCode()
+  if (found) {
+    code.value = found
+    void pair(found)
   }
 })
 </script>
