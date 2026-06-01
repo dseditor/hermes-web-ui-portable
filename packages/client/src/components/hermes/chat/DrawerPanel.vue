@@ -3,10 +3,11 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TerminalPanel from './TerminalPanel.vue'
 import FilesPanel from './FilesPanel.vue'
+import PreviewPanel from './PreviewPanel.vue'
 
 interface Props {
   show: boolean
-  activeTab?: 'terminal' | 'files'
+  activeTab?: 'terminal' | 'files' | 'preview'
 }
 
 interface Emits {
@@ -20,7 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
 
-const activeTab = ref<'terminal' | 'files'>(props.activeTab)
+const activeTab = ref<'terminal' | 'files' | 'preview'>(props.activeTab)
 
 watch(() => props.activeTab, (newVal) => {
   if (newVal) activeTab.value = newVal
@@ -49,6 +50,12 @@ function handleClose() {
           >
             {{ t('drawer.terminal') }}
           </button>
+          <button
+            :class="['tab-button', { active: activeTab === 'preview' }]"
+            @click="activeTab = 'preview'"
+          >
+            {{ t('drawer.preview') }}
+          </button>
         </div>
         <button class="close-button" @click="handleClose">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -64,6 +71,9 @@ function handleClose() {
         </div>
         <div v-show="activeTab === 'terminal'" class="drawer-pane">
           <TerminalPanel :visible="activeTab === 'terminal' && show" />
+        </div>
+        <div v-show="activeTab === 'preview'" class="drawer-pane">
+          <PreviewPanel />
         </div>
       </div>
     </div>

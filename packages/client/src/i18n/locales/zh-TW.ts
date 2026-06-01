@@ -274,6 +274,16 @@ export default {
   drawer: {
     terminal: '終端機',
     files: '工作區',
+    preview: '預覽',
+  },
+  preview: {
+    urlPlaceholder: '網址（如 localhost:3000）',
+    go: '前往',
+    refresh: '重新整理',
+    openExternal: '在瀏覽器開啟',
+    quick: '快速埠：',
+    emptyTitle: '本地網頁預覽',
+    emptyHint: '輸入網址或點上方的快速埠，即可在這裡即時預覽本地開發伺服器（支援熱更新）。',
   },
 
   // 對話

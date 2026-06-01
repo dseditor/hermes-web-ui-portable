@@ -274,6 +274,16 @@ export default {
   drawer: {
     terminal: 'Terminal',
     files: 'Workspace',
+    preview: 'Preview',
+  },
+  preview: {
+    urlPlaceholder: 'URL (e.g. localhost:3000)',
+    go: 'Go',
+    refresh: 'Refresh',
+    openExternal: 'Open in browser',
+    quick: 'Quick ports:',
+    emptyTitle: 'Local web preview',
+    emptyHint: 'Enter a URL or pick a quick port to live-preview a local dev server here (hot reload supported).',
   },
 
   // Chat
