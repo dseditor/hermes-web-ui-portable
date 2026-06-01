@@ -411,7 +411,8 @@ function openChangelog() {
   width: $sidebar-width;
   height: calc(100 * var(--vh));
   background-color: $bg-sidebar;
-  border-right: 1px solid $border-color;
+  color: $sidebar-text;
+  border-right: 1px solid $sidebar-border;
   display: flex;
   flex-direction: column;
   padding: 0 12px 20px;
@@ -432,14 +433,10 @@ function openChangelog() {
   gap: 10px;
   padding: 20px 12px;
   margin: 0 -12px;
-  color: $text-primary;
+  color: $sidebar-text;
   cursor: pointer;
-  background-color: $bg-card;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-
-  .dark & {
-    background-color: #393939;
-  }
+  background-color: $sidebar-logo-bg;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   position: relative;
   overflow: hidden;
 
@@ -480,7 +477,7 @@ function openChangelog() {
 
 :deep(.profile-selector) {
   padding-top: 12px;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid $sidebar-border;
 }
 
 .nav-group {
@@ -491,7 +488,7 @@ function openChangelog() {
   &.nav-group-bottom {
     margin-top: auto;
     padding-top: 8px;
-    border-top: 1px solid $border-color;
+    border-top: 1px solid $sidebar-border;
   }
 }
 
@@ -504,7 +501,7 @@ function openChangelog() {
 .nav-group-label {
   font-size: 10px;
   font-weight: 600;
-  color: $text-muted;
+  color: $sidebar-text-muted;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   padding: 8px 12px 4px;
@@ -517,7 +514,7 @@ function openChangelog() {
   transition: color $transition-fast;
 
   &:hover {
-    color: $text-secondary;
+    color: $sidebar-text;
   }
 
   .nav-group:first-child & {
@@ -543,7 +540,7 @@ function openChangelog() {
   background: none;
   appearance: none;
   text-decoration: none;
-  color: $text-secondary;
+  color: $sidebar-text-muted;
   font-size: 14px;
   border-radius: $radius-sm;
   cursor: pointer;
@@ -552,13 +549,13 @@ function openChangelog() {
   text-align: left;
 
   &:hover {
-    background-color: rgba(var(--accent-primary-rgb), 0.06);
-    color: $text-primary;
+    background-color: $sidebar-hover-bg;
+    color: $sidebar-text;
   }
 
   &.active {
-    background-color: rgba(var(--accent-primary-rgb), 0.12);
-    color: $accent-primary;
+    background-color: $sidebar-active-bg;
+    color: $sidebar-active-text;
   }
 
   .beta-tag {
@@ -570,7 +567,7 @@ function openChangelog() {
 
 .sidebar-footer {
   padding-top: 8px;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid $sidebar-border;
 }
 
 .logout-item {
@@ -578,7 +575,7 @@ function openChangelog() {
   padding: 10px 12px;
   border-radius: 0;
   font-size: 13px;
-  color: $text-muted;
+  color: $sidebar-text-muted;
 
   &:hover {
     color: $error;
@@ -616,14 +613,14 @@ function openChangelog() {
   }
 
   .status-text {
-    color: $text-secondary;
+    color: $sidebar-text-muted;
   }
 }
 
 .version-info {
   padding: 2px 12px 8px;
   font-size: 11px;
-  color: $text-muted;
+  color: $sidebar-text-muted;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -645,13 +642,13 @@ function openChangelog() {
 
 .github-link,
 .website-link {
-  color: $text-muted;
+  color: $sidebar-text-muted;
   display: flex;
   align-items: center;
   transition: color 0.2s;
 
   &:hover {
-    color: $text-primary;
+    color: $sidebar-text;
   }
 }
 
@@ -668,7 +665,7 @@ function openChangelog() {
   transition: color 0.2s;
 
   &:hover {
-    color: $accent-primary;
+    color: $sidebar-active-text;
   }
 }
 
@@ -866,7 +863,7 @@ function openChangelog() {
   background: none;
   appearance: none;
   text-decoration: none;
-  color: $text-muted;
+  color: $sidebar-text-muted;
   border-radius: $radius-sm;
   cursor: pointer;
   flex-shrink: 0;
@@ -875,8 +872,8 @@ function openChangelog() {
   transition: all $transition-fast;
 
   &:hover {
-    color: $text-primary;
-    background-color: rgba(var(--accent-primary-rgb), 0.08);
+    color: $sidebar-text;
+    background-color: $sidebar-hover-bg;
   }
 }
 

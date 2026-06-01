@@ -5,27 +5,36 @@
 // ─── CSS Custom Properties ─────────────────────────────────────
 
 :root {
-  // Backgrounds — warm paper (宣紙)
-  --bg-primary: #faf8f4;
-  --bg-secondary: #f0ece4;
-  --bg-sidebar: #f5f1ea;
-  --bg-card: #ffffff;
-  --bg-card-hover: #faf8f4;
-  --bg-input: #ffffff;
+  // Backgrounds — warm cream (design-studio)
+  --bg-primary: #f4efe6;
+  --bg-secondary: #ece5d8;
+  --bg-sidebar: #2b2622;        // espresso dark sidebar (two-tone)
+  --bg-card: #fbf9f4;
+  --bg-card-hover: #f1ebe0;
+  --bg-input: #fbf9f4;
 
   // Borders
-  --border-color: #e2dccf;
-  --border-light: #ece7dd;
+  --border-color: #e6ddcd;
+  --border-light: #efe8db;
 
-  // Accent — 朱印紅 (seal red)
-  --accent-primary: #c8403a;
-  --accent-hover: #b5332c;
-  --accent-muted: #b08d8a;
+  // Accent — 陶土紅/赭 (clay, bridges 朱印紅)
+  --accent-primary: #b0563f;
+  --accent-hover: #984733;
+  --accent-muted: #b39a8a;
+
+  // Dark sidebar tokens (espresso panel with cream text)
+  --sidebar-text: #e9e1d4;
+  --sidebar-text-muted: #9d9183;
+  --sidebar-active-bg: rgba(176, 86, 63, 0.30);
+  --sidebar-active-text: #f0c7b6;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-border: #3a342d;
+  --sidebar-logo-bg: #221e1a;
 
   // Text
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --text-muted: #999999;
+  --text-primary: #2b2520;
+  --text-secondary: #6f665b;
+  --text-muted: #a39a8c;
 
   // Status
   --success: #2e7d32;
@@ -46,8 +55,8 @@
   --accent-info: #4a90d9;
 
   // RGB components (for rgba() usage)
-  --accent-primary-rgb: 200, 64, 58;
-  --accent-hover-rgb: 181, 51, 44;
+  --accent-primary-rgb: 176, 86, 63;
+  --accent-hover-rgb: 152, 71, 51;
   --text-primary-rgb: 26, 26, 26;
   --text-muted-rgb: 153, 153, 153;
   --success-rgb: 46, 125, 50;
@@ -69,10 +78,19 @@
   --border-color: #332f29;
   --border-light: #2a2722;
 
-  // Accent — 朱印紅 (seal red, brighter on ink)
-  --accent-primary: #e45b4d;
-  --accent-hover: #ee6c5e;
-  --accent-muted: #9a7d78;
+  // Accent — 陶土紅/赭 (clay, brighter on ink)
+  --accent-primary: #cf7a55;
+  --accent-hover: #db8a64;
+  --accent-muted: #9a7d6e;
+
+  // Dark sidebar tokens
+  --sidebar-text: #e9e1d4;
+  --sidebar-text-muted: #97907f;
+  --sidebar-active-bg: rgba(207, 122, 85, 0.26);
+  --sidebar-active-text: #e9b89c;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-border: #2c2823;
+  --sidebar-logo-bg: #1a1713;
 
   // Text
   --text-primary: #f0f0f0;
@@ -98,8 +116,8 @@
   --accent-info: #6ba3d6;
 
   // RGB components
-  --accent-primary-rgb: 228, 91, 77;
-  --accent-hover-rgb: 238, 108, 94;
+  --accent-primary-rgb: 207, 122, 85;
+  --accent-hover-rgb: 219, 138, 100;
   --text-primary-rgb: 240, 240, 240;
   --text-muted-rgb: 136, 136, 136;
   --success-rgb: 102, 187, 106;
@@ -136,6 +154,15 @@ $bg-primary: var(--bg-primary);
 $bg-secondary: var(--bg-secondary);
 $bg-sidebar: var(--bg-sidebar);
 $bg-card: var(--bg-card);
+
+// Sidebar (dark two-tone panel)
+$sidebar-text: var(--sidebar-text);
+$sidebar-text-muted: var(--sidebar-text-muted);
+$sidebar-active-bg: var(--sidebar-active-bg);
+$sidebar-active-text: var(--sidebar-active-text);
+$sidebar-hover-bg: var(--sidebar-hover-bg);
+$sidebar-border: var(--sidebar-border);
+$sidebar-logo-bg: var(--sidebar-logo-bg);
 $bg-card-hover: var(--bg-card-hover);
 $bg-input: var(--bg-input);
 

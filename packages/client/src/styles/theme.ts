@@ -1,18 +1,18 @@
 import type { GlobalThemeOverrides } from 'naive-ui'
 
-// ── Brand palette: 墨黑 (ink) + 朱印紅 (seal/cinnabar red) ──────────────
-// Accent is the warm seal red; neutrals stay ink-black / warm paper so the
-// red reads as an intentional brand mark rather than colouring everything.
-const SEAL = '#C8403A'
-const SEAL_HOVER = '#B5332C'
-const SEAL_PRESSED = '#9E2620'
-const SEAL_DARK = '#E45B4D'
-const SEAL_DARK_HOVER = '#EE6C5E'
-const SEAL_DARK_PRESSED = '#D44A3C'
-const SEAL_TINT_LIGHT = 'rgba(200, 64, 58, 0.10)'
-const SEAL_TINT_LIGHT_HOVER = 'rgba(200, 64, 58, 0.16)'
-const SEAL_TINT_DARK = 'rgba(228, 91, 77, 0.16)'
-const SEAL_TINT_DARK_HOVER = 'rgba(228, 91, 77, 0.24)'
+// ── Design-studio palette: warm cream + espresso + 陶土紅/赭 (clay) ────
+// Clay is the warm earthy accent (bridges the 朱印紅 brand); neutrals are
+// warm cream (light) / warm ink (dark) for a calm studio feel.
+const SEAL = '#B0563F'
+const SEAL_HOVER = '#984733'
+const SEAL_PRESSED = '#843D2C'
+const SEAL_DARK = '#CF7A55'
+const SEAL_DARK_HOVER = '#DB8A64'
+const SEAL_DARK_PRESSED = '#C06A45'
+const SEAL_TINT_LIGHT = 'rgba(176, 86, 63, 0.10)'
+const SEAL_TINT_LIGHT_HOVER = 'rgba(176, 86, 63, 0.16)'
+const SEAL_TINT_DARK = 'rgba(207, 122, 85, 0.18)'
+const SEAL_TINT_DARK_HOVER = 'rgba(207, 122, 85, 0.26)'
 
 export const lightThemeOverrides: GlobalThemeOverrides = {
   common: {
@@ -20,22 +20,22 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
     primaryColorHover: SEAL_HOVER,
     primaryColorPressed: SEAL_PRESSED,
     primaryColorSuppl: SEAL,
-    bodyColor: '#faf8f4',       // warm paper (宣紙感)
-    cardColor: '#ffffff',
-    modalColor: '#ffffff',
-    popoverColor: '#ffffff',
-    tableColor: '#ffffff',
+    bodyColor: '#f4efe6',       // warm cream (design-studio)
+    cardColor: '#fbf9f4',
+    modalColor: '#fbf9f4',
+    popoverColor: '#fbf9f4',
+    tableColor: '#fbf9f4',
     inputColor: '#ffffff',
-    actionColor: '#f3efe8',
-    textColorBase: '#1a1714',
-    textColor1: '#1a1714',
-    textColor2: '#6b645c',
-    textColor3: '#9a938a',
-    dividerColor: '#e6e0d6',
-    borderColor: '#e2dccf',
+    actionColor: '#ece5d8',
+    textColorBase: '#2b2520',
+    textColor1: '#2b2520',
+    textColor2: '#6f665b',
+    textColor3: '#a39a8c',
+    dividerColor: '#e6ddcd',
+    borderColor: '#e6ddcd',
     hoverColor: 'rgba(0, 0, 0, 0.04)',
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
+    borderRadius: '10px',
+    borderRadiusSmall: '8px',
     fontSize: '14px',
     fontSizeMedium: '14px',
     heightMedium: '36px',
@@ -43,9 +43,9 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
     fontFamilyMono: 'JetBrains Mono, Fira Code, Consolas, monospace',
   },
   Layout: {
-    color: '#faf8f4',
-    siderColor: '#f5f1ea',
-    headerColor: '#faf8f4',
+    color: '#f4efe6',
+    siderColor: '#2b2622',
+    headerColor: '#f4efe6',
   },
   Menu: {
     itemTextColorActive: SEAL,
@@ -105,8 +105,8 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     dividerColor: '#332f29',
     borderColor: '#332f29',
     hoverColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
+    borderRadius: '10px',
+    borderRadiusSmall: '8px',
     fontSize: '14px',
     fontSizeMedium: '14px',
     heightMedium: '36px',
