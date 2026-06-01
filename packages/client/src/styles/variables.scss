@@ -5,22 +5,22 @@
 // ─── CSS Custom Properties ─────────────────────────────────────
 
 :root {
-  // Backgrounds
-  --bg-primary: #fafafa;
-  --bg-secondary: #f0f0f0;
-  --bg-sidebar: #f5f5f5;
+  // Backgrounds — warm paper (宣紙)
+  --bg-primary: #faf8f4;
+  --bg-secondary: #f0ece4;
+  --bg-sidebar: #f5f1ea;
   --bg-card: #ffffff;
-  --bg-card-hover: #fafafa;
+  --bg-card-hover: #faf8f4;
   --bg-input: #ffffff;
 
   // Borders
-  --border-color: #e0e0e0;
-  --border-light: #ebebeb;
+  --border-color: #e2dccf;
+  --border-light: #ece7dd;
 
-  // Accent
-  --accent-primary: #333333;
-  --accent-hover: #1a1a1a;
-  --accent-muted: #888888;
+  // Accent — 朱印紅 (seal red)
+  --accent-primary: #c8403a;
+  --accent-hover: #b5332c;
+  --accent-muted: #b08d8a;
 
   // Text
   --text-primary: #1a1a1a;
@@ -46,8 +46,8 @@
   --accent-info: #4a90d9;
 
   // RGB components (for rgba() usage)
-  --accent-primary-rgb: 51, 51, 51;
-  --accent-hover-rgb: 26, 26, 26;
+  --accent-primary-rgb: 200, 64, 58;
+  --accent-hover-rgb: 181, 51, 44;
   --text-primary-rgb: 26, 26, 26;
   --text-muted-rgb: 153, 153, 153;
   --success-rgb: 46, 125, 50;
@@ -57,22 +57,22 @@
 }
 
 .dark {
-  // Backgrounds
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #252525;
-  --bg-sidebar: #202020;
-  --bg-card: #333333;
-  --bg-card-hover: #333333;
-  --bg-input: #2a2a2a;
+  // Backgrounds — warm ink black (墨)
+  --bg-primary: #16140f;
+  --bg-secondary: #1c1a16;
+  --bg-sidebar: #1b1915;
+  --bg-card: #211e1a;
+  --bg-card-hover: #2a2722;
+  --bg-input: #211e1a;
 
   // Borders
-  --border-color: #3a3a3a;
-  --border-light: #333333;
+  --border-color: #332f29;
+  --border-light: #2a2722;
 
-  // Accent
-  --accent-primary: #e0e0e0;
-  --accent-hover: #f5f5f5;
-  --accent-muted: #888888;
+  // Accent — 朱印紅 (seal red, brighter on ink)
+  --accent-primary: #e45b4d;
+  --accent-hover: #ee6c5e;
+  --accent-muted: #9a7d78;
 
   // Text
   --text-primary: #f0f0f0;
@@ -93,13 +93,13 @@
   --code-bg: #1e1e1e;
 
   // Utility
-  --text-on-accent: #1a1a1a;
+  --text-on-accent: #ffffff;
   --text-on-overlay: #ffffff;
   --accent-info: #6ba3d6;
 
   // RGB components
-  --accent-primary-rgb: 240, 240, 240;
-  --accent-hover-rgb: 245, 245, 245;
+  --accent-primary-rgb: 228, 91, 77;
+  --accent-hover-rgb: 238, 108, 94;
   --text-primary-rgb: 240, 240, 240;
   --text-muted-rgb: 136, 136, 136;
   --success-rgb: 102, 187, 106;
