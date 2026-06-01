@@ -47,6 +47,7 @@ export interface AgentBridgeChatOptions {
   model?: string
   provider?: string
   source?: string
+  workspace?: string
   wait?: boolean
   timeout?: number
 }
@@ -412,6 +413,7 @@ export class AgentBridgeClient {
       ...(options.model ? { model: options.model } : {}),
       ...(options.provider ? { provider: options.provider } : {}),
       ...(options.source ? { source: options.source } : {}),
+      ...(options.workspace ? { workspace: options.workspace } : {}),
       ...(options.wait ? { wait: true } : {}),
       ...(options.timeout ? { timeout: options.timeout } : {}),
       ...(options.force_compress ? { force_compress: true } : {}),

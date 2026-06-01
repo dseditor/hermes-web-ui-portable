@@ -1,27 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { NSpin } from 'naive-ui'
+import { ref, onMounted } from 'vue'
+import { NButton, NSpin } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { request } from '@/api/client'
 
 interface FolderEntry {
   name: string
   path: string
-  fullPath: string
 }
 
 interface FolderListResponse {
   base: string
   current: string
+  name: string
+  parent: string
+  drives: string[]
   folders: FolderEntry[]
-}
-
-/** Flat display node for rendering tree without recursion */
-interface FlatNode {
-  folder: FolderEntry
-  depth: number
-  isExpanded: boolean
-  isLoading: boolean
-  hasChildren: boolean | null  // null = unknown
 }
 
 const props = defineProps<{
@@ -32,158 +26,121 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | null]
 }>()
 
+const { t } = useI18n()
+
 const loading = ref(false)
-const basePath = ref('')
+const current = ref('')
+const parent = ref('')
+const drives = ref<string[]>([])
 const folders = ref<FolderEntry[]>([])
-const expandedPaths = ref<Set<string>>(new Set())
-const childrenCache = ref<Map<string, FolderEntry[]>>(new Map())
-const loadingPaths = ref<Set<string>>(new Set())
 const selectedPath = ref(props.modelValue || '')
 
-watch(() => props.modelValue, (v) => { selectedPath.value = v || '' })
-
-async function loadFolders(subPath = ''): Promise<FolderListResponse | null> {
-  try {
-    const query = subPath ? `?path=${encodeURIComponent(subPath)}` : ''
-    return await request<FolderListResponse>(`/api/hermes/workspace/folders${query}`)
-  } catch {
-    return null
-  }
-}
-
-onMounted(async () => {
+async function load(path = '') {
   loading.value = true
-  const res = await loadFolders()
-  if (res) {
-    basePath.value = res.base
-    folders.value = res.folders
-  }
-  loading.value = false
-})
-
-async function toggleExpand(folder: FolderEntry) {
-  if (expandedPaths.value.has(folder.path)) {
-    expandedPaths.value.delete(folder.path)
-    expandedPaths.value = new Set(expandedPaths.value)
-    return
-  }
-
-  expandedPaths.value.add(folder.path)
-  expandedPaths.value = new Set(expandedPaths.value)
-
-  if (!childrenCache.value.has(folder.path)) {
-    loadingPaths.value.add(folder.path)
-    loadingPaths.value = new Set(loadingPaths.value)
-    const res = await loadFolders(folder.path)
-    childrenCache.value.set(folder.path, res?.folders || [])
-    childrenCache.value = new Map(childrenCache.value)
-    loadingPaths.value.delete(folder.path)
-    loadingPaths.value = new Set(loadingPaths.value)
+  try {
+    const query = path ? `?path=${encodeURIComponent(path)}` : ''
+    const res = await request<FolderListResponse>(`/api/hermes/workspace/folders${query}`)
+    current.value = res.current
+    parent.value = res.parent
+    drives.value = res.drives || []
+    folders.value = res.folders || []
+  } catch {
+    folders.value = []
+  } finally {
+    loading.value = false
   }
 }
 
-function selectFolder(folder: FolderEntry) {
-  const fullPath = `${basePath.value}/${folder.path}`
-  selectedPath.value = fullPath
-  emit('update:modelValue', fullPath)
+function selectCurrent() {
+  selectedPath.value = current.value
+  emit('update:modelValue', current.value)
 }
 
-function selectBase() {
-  selectedPath.value = basePath.value
-  emit('update:modelValue', basePath.value)
-}
-
-/** Build a flat list by DFS traversal of expanded nodes */
-const flatNodes = computed<FlatNode[]>(() => {
-  const result: FlatNode[] = []
-
-  function traverse(entries: FolderEntry[], depth: number) {
-    for (const folder of entries) {
-      const isExpanded = expandedPaths.value.has(folder.path)
-      const isLoading = loadingPaths.value.has(folder.path)
-      const children = childrenCache.value.get(folder.path)
-      result.push({
-        folder,
-        depth,
-        isExpanded,
-        isLoading,
-        hasChildren: children ? children.length > 0 : null,
-      })
-      if (isExpanded && children && children.length > 0) {
-        traverse(children, depth + 1)
-      }
-    }
-  }
-
-  traverse(folders.value, 0)
-  return result
+onMounted(() => {
+  // Open at the currently-selected folder if any, otherwise the default start.
+  void load(props.modelValue || '')
 })
 </script>
 
 <template>
   <div class="folder-picker">
-    <div v-if="loading" class="folder-picker-loading">
-      <NSpin size="small" />
+    <!-- Current path + up -->
+    <div class="folder-bar">
+      <NButton size="tiny" :disabled="!parent || loading" @click="load(parent)">↑ {{ t('folderPicker.up') }}</NButton>
+      <code class="current-path">{{ current || '/' }}</code>
     </div>
-    <div v-else class="folder-tree">
-      <!-- Base path as root -->
-      <div
-        class="folder-item root"
-        :class="{ selected: selectedPath === basePath }"
-        @click="selectBase"
-      >
-        <span class="folder-icon">📂</span>
-        <span class="folder-name">{{ basePath || '/' }}</span>
-      </div>
 
-      <!-- Flat rendered tree -->
+    <!-- Drive shortcuts -->
+    <div v-if="drives.length > 1" class="drive-row">
+      <NButton
+        v-for="d in drives"
+        :key="d"
+        size="tiny"
+        tertiary
+        :type="current === d ? 'primary' : 'default'"
+        @click="load(d)"
+      >{{ d }}</NButton>
+    </div>
+
+    <div v-if="loading" class="folder-picker-loading"><NSpin size="small" /></div>
+    <div v-else class="folder-list">
       <div
-        v-for="node in flatNodes"
-        :key="node.folder.path"
+        v-for="folder in folders"
+        :key="folder.path"
         class="folder-item"
-        :class="{ selected: selectedPath === `${basePath}/${node.folder.path}` }"
-        :style="{ paddingLeft: `${12 + node.depth * 16}px` }"
+        :class="{ selected: selectedPath === folder.path }"
+        @click="load(folder.path)"
       >
-        <span class="folder-expand" @click.stop="toggleExpand(node.folder)">
-          <template v-if="node.isLoading">⏳</template>
-          <template v-else>{{ node.isExpanded ? '▼' : '▶' }}</template>
-        </span>
-        <span class="folder-icon" @click="selectFolder(node.folder)">📁</span>
-        <span class="folder-name" @click="selectFolder(node.folder)">{{ node.folder.name }}</span>
+        <span class="folder-icon">📁</span>
+        <span class="folder-name">{{ folder.name }}</span>
+        <span class="folder-enter">›</span>
       </div>
-
-      <!-- Empty children indicator for expanded folders with no children -->
-      <template v-for="node in flatNodes" :key="'empty-' + node.folder.path">
-        <div
-          v-if="node.isExpanded && !node.isLoading && node.hasChildren === false"
-          class="folder-item empty"
-          :style="{ paddingLeft: `${28 + node.depth * 16}px` }"
-        >
-          <span class="folder-empty-text">（空）</span>
-        </div>
-      </template>
-
-      <div v-if="folders.length === 0 && !loading" class="folder-empty">
-        暂无工作区文件夹
-      </div>
+      <div v-if="folders.length === 0" class="folder-empty">{{ t('folderPicker.empty') }}</div>
     </div>
 
-    <!-- Selected path display -->
+    <!-- Select the current folder -->
+    <div class="folder-select-bar">
+      <NButton type="primary" size="small" block :disabled="!current" @click="selectCurrent">
+        {{ t('folderPicker.selectThis') }}
+      </NButton>
+    </div>
+
     <div v-if="selectedPath" class="folder-selected">
-      <span class="folder-selected-label">已选择：</span>
-      <span class="folder-selected-path">{{ selectedPath }}</span>
+      <span class="folder-selected-label">{{ t('folderPicker.selected') }}</span>
+      <code class="folder-selected-path">{{ selectedPath }}</code>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .folder-picker {
-  max-height: 360px;
-  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   padding: 8px;
   background: rgba(0, 0, 0, 0.2);
+}
+
+.folder-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.current-path {
+  font-family: monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.drive-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .folder-picker-loading {
@@ -192,15 +149,17 @@ const flatNodes = computed<FlatNode[]>(() => {
   padding: 24px;
 }
 
-.folder-tree {
+.folder-list {
+  max-height: 300px;
+  overflow-y: auto;
   font-size: 13px;
 }
 
 .folder-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 5px 8px;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s;
@@ -213,47 +172,27 @@ const flatNodes = computed<FlatNode[]>(() => {
     background: rgba(64, 158, 255, 0.15);
     outline: 1px solid rgba(64, 158, 255, 0.4);
   }
-
-  &.root {
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  &.empty {
-    opacity: 0.5;
-    cursor: default;
-  }
 }
 
-.folder-expand {
-  width: 14px;
-  font-size: 10px;
-  text-align: center;
-  flex-shrink: 0;
-  user-select: none;
-  opacity: 0.6;
-}
-
-.folder-icon {
-  flex-shrink: 0;
-}
+.folder-icon { flex-shrink: 0; }
 
 .folder-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.folder-empty-text {
-  font-size: 11px;
-  opacity: 0.5;
-  font-style: italic;
-}
+.folder-enter { opacity: 0.4; flex-shrink: 0; }
 
 .folder-empty {
   text-align: center;
   padding: 16px;
   opacity: 0.5;
+}
+
+.folder-select-bar {
+  margin-top: 8px;
 }
 
 .folder-selected {
@@ -267,10 +206,7 @@ const flatNodes = computed<FlatNode[]>(() => {
   align-items: center;
 }
 
-.folder-selected-label {
-  opacity: 0.6;
-  flex-shrink: 0;
-}
+.folder-selected-label { opacity: 0.6; flex-shrink: 0; }
 
 .folder-selected-path {
   font-family: monospace;

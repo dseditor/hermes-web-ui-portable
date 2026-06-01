@@ -624,6 +624,12 @@ export default {
   },
 
   // 插件
+  folderPicker: {
+    up: '上一層',
+    empty: '（沒有子資料夾）',
+    selectThis: '選擇目前這個資料夾',
+    selected: '已選擇：',
+  },
   modelPrompt: {
     title: '尚未設定模型',
     message: '目前還沒有可用的模型。請先新增一個模型（填入提供者與金鑰），才能開始對話。',

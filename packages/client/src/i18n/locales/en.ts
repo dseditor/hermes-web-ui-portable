@@ -623,6 +623,12 @@ export default {
     },
   },
 
+  folderPicker: {
+    up: 'Up',
+    empty: '(no subfolders)',
+    selectThis: 'Select this folder',
+    selected: 'Selected:',
+  },
   modelPrompt: {
     title: 'No model configured',
     message: 'There is no usable model yet. Add a model (provider + key) first to start chatting.',

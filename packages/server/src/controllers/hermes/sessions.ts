@@ -750,29 +750,41 @@ export async function usageStats(ctx: any) {
 }
 
 /**
- * List folders under workspace base path for folder picker.
- * GET /api/hermes/workspace/folders?path=<relative_path>
- * Base: /opt/data/workspace (overridable via WORKSPACE_BASE env)
+ * Free filesystem folder browser for the project-folder picker.
+ * GET /api/hermes/workspace/folders?path=<absolute_path>
+ * - No path: starts at WORKSPACE_BASE (if set & exists) else the user's home.
+ * - Returns absolute child folders, the parent path (for "up"), and the list of
+ *   drive roots (Windows) so the picker can navigate the whole filesystem.
+ * Access is gated by auth; this is intentionally unsandboxed per design.
  */
 export async function listWorkspaceFolders(ctx: any) {
-  const { resolve, join } = await import('path')
+  const { resolve, dirname, basename, join } = await import('path')
   const { readdir } = await import('fs/promises')
   const { existsSync } = await import('fs')
+  const os = await import('os')
 
-  const WORKSPACE_BASE = process.env.WORKSPACE_BASE || '/opt/data/workspace'
-  const subPath = (ctx.query.path as string) || ''
-
-  // Security: prevent path traversal
-  const fullPath = resolve(join(WORKSPACE_BASE, subPath))
-  if (!isPathWithin(fullPath, WORKSPACE_BASE)) {
-    ctx.status = 403
-    ctx.body = { error: 'Access denied' }
-    return
+  // Probe drive roots on Windows so the picker can jump between drives.
+  const drives: string[] = []
+  if (process.platform === 'win32') {
+    for (let c = 67 /* C */; c <= 90 /* Z */; c++) {
+      const root = `${String.fromCharCode(c)}:\\`
+      if (existsSync(root)) drives.push(root)
+    }
+  } else {
+    drives.push('/')
   }
+
+  const envBase = process.env.WORKSPACE_BASE && existsSync(process.env.WORKSPACE_BASE)
+    ? process.env.WORKSPACE_BASE
+    : ''
+  const defaultStart = envBase || os.homedir()
+
+  const requested = (ctx.query.path as string) || ''
+  const fullPath = resolve(requested || defaultStart)
 
   if (!existsSync(fullPath)) {
     ctx.status = 404
-    ctx.body = { error: 'Path not found', folders: [] }
+    ctx.body = { error: 'Path not found', current: fullPath, parent: '', folders: [], drives }
     return
   }
 
@@ -780,17 +792,24 @@ export async function listWorkspaceFolders(ctx: any) {
     const entries = await readdir(fullPath, { withFileTypes: true })
     const folders = entries
       .filter(e => e.isDirectory() && !e.name.startsWith('.'))
-      .map(e => ({
-        name: e.name,
-        path: subPath ? `${subPath}/${e.name}` : e.name,
-        fullPath: join(fullPath, e.name),
-      }))
+      .map(e => ({ name: e.name, path: join(fullPath, e.name) }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    ctx.body = { base: WORKSPACE_BASE, current: subPath, folders }
+    // parent === self at a drive/filesystem root → no parent.
+    const parentPath = dirname(fullPath)
+    const parent = parentPath === fullPath ? '' : parentPath
+
+    ctx.body = {
+      base: defaultStart,
+      current: fullPath,
+      name: basename(fullPath) || fullPath,
+      parent,
+      drives,
+      folders,
+    }
   } catch (err: any) {
     ctx.status = 500
-    ctx.body = { error: err.message }
+    ctx.body = { error: err.message, current: fullPath, parent: '', folders: [], drives }
   }
 }
 

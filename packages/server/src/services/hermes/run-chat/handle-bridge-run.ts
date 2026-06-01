@@ -412,6 +412,7 @@ export async function handleBridgeRun(
         ...(bridgeStorageInput !== undefined ? { storage_message: bridgeStorageInput } : {}),
         ...(resolvedModel ? { model: resolvedModel } : {}),
         ...(resolvedProvider ? { provider: resolvedProvider } : {}),
+        ...(sessionRow?.workspace ? { workspace: sessionRow.workspace } : {}),
       },
     )
     state.runId = started.run_id

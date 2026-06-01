@@ -854,17 +854,21 @@ class AgentPool:
         profile: str | None = None,
         model: str | None = None,
         provider: str | None = None,
+        workspace: str | None = None,
     ) -> AgentSession:
         requested_model = str(model or "").strip()
         requested_provider = str(provider or "").strip()
+        requested_workspace = str(workspace or "").strip()
         with self._lock:
             existing = self._sessions.get(session_id)
             if existing is not None:
-                # If profile changed, destroy old session and recreate
+                # If profile / model / provider / workspace changed, recreate so
+                # the agent picks up the new working directory (cwd) etc.
                 config_changed = bool(
                     (profile and existing.config.get("profile") != profile)
                     or (requested_model and existing.config.get("model") != requested_model)
                     or (requested_provider and existing.config.get("provider") != requested_provider)
+                    or (existing.config.get("workspace") or "") != requested_workspace
                 )
                 if config_changed:
                     if not existing.running:
@@ -882,6 +886,14 @@ class AgentPool:
 
             with _profile_env(profile):
                 _refresh_worker_profile_env()
+                # Point the agent's terminal/file/code tools at the selected
+                # project folder (its real cwd). Empty selection = use the
+                # server's default cwd. Set deterministically per build so a
+                # previous session's workspace can't leak into this one.
+                if requested_workspace and os.path.isdir(requested_workspace):
+                    os.environ["TERMINAL_CWD"] = requested_workspace
+                else:
+                    os.environ.pop("TERMINAL_CWD", None)
                 discovered_mcp_tools = _discover_bridge_mcp_tools()
                 cfg = _load_cfg()
                 resolved_model = requested_model or _resolve_model(cfg)
@@ -905,6 +917,11 @@ class AgentPool:
                     service_tier=_load_service_tier(),
                     enabled_toolsets=_load_enabled_toolsets(),
                     platform=_bridge_platform(),
+                    # Keep the global SOUL.md (master spec) as identity, but do NOT
+                    # auto-swallow a cwd's AGENTS.md/CLAUDE.md/.cursorrules — those
+                    # overload small models. Project context is opt-in (future).
+                    skip_context_files=True,
+                    load_soul_identity=True,
                     session_id=session_id,
                     session_db=self._db.get_for_profile(profile),
                     ephemeral_system_prompt=prompt,
@@ -927,6 +944,7 @@ class AgentPool:
                     config={
                         "requested_session_id": session_id,
                         "profile": profile or "default",
+                        "workspace": requested_workspace,
                         "model": resolved_model,
                         "provider": runtime.get("provider"),
                         "base_url": runtime.get("base_url"),
@@ -1532,8 +1550,9 @@ class AgentPool:
         model: str | None = None,
         provider: str | None = None,
         source: str | None = None,
+        workspace: str | None = None,
     ) -> RunRecord:
-        session = self.get_or_create(session_id, profile=profile, model=model, provider=provider)
+        session = self.get_or_create(session_id, profile=profile, model=model, provider=provider, workspace=workspace)
         with session.lock:
             if session.running:
                 raise RuntimeError(f"session {session_id} is already running")
@@ -2186,6 +2205,7 @@ class BridgeServer:
             model = req.get("model")
             provider = req.get("provider")
             source = req.get("source")
+            workspace = req.get("workspace")
             record = self.pool.start_chat(
                 session_id,
                 message,
@@ -2197,6 +2217,7 @@ class BridgeServer:
                 model,
                 provider,
                 source,
+                workspace=workspace,
             )
             if req.get("wait"):
                 timeout = float(req.get("timeout", 0) or 0)
