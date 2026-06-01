@@ -15,7 +15,13 @@ services:
     environment:
       - PORT=${PORT:-6060}
       - HERMES_HOME=/home/agent/.hermes
+      # Web-ui DB / auth token / chat history (matches the volume mount below).
+      - HERMES_WEB_UI_HOME=/home/agent/.hermes-web-ui
       - HERMES_BIN=/opt/hermes/.venv/bin/hermes
+      # Pin the agent bridge to the bundled hermes-agent venv python so the
+      # local CLI bridge resolves unambiguously inside this all-in-one image
+      # (highest-priority override in resolveAgentBridgeCommand).
+      - HERMES_AGENT_BRIDGE_PYTHON=/opt/hermes/.venv/bin/python
       - HERMES_WEB_UI_MANAGED_GATEWAY=1
       - HERMES_WEB_UI_XAI_CALLBACK_BIND_HOST=0.0.0.0
       - PATH=/opt/hermes/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
