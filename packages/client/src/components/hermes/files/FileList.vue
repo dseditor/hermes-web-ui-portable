@@ -3,7 +3,11 @@ import { NButton, NSpin, NEmpty, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore, isImageFile, isMarkdownFile, isTextFile } from '@/stores/hermes/files'
 import { downloadFile } from '@/api/hermes/download'
-import type { FileEntry } from '@/api/hermes/files'
+import { getFileDownloadUrl, type FileEntry } from '@/api/hermes/files'
+
+function isPdf(name: string): boolean {
+  return /\.pdf$/i.test(name)
+}
 
 const { t } = useI18n()
 const message = useMessage()
@@ -97,8 +101,16 @@ async function handleDownload(entry: FileEntry) {
           @contextmenu="handleContextMenu($event, entry)"
         >
           <div class="file-name">
-            <span class="file-icon">{{ getFileIcon(entry) }}</span>
-            <span>{{ entry.name }}</span>
+            <img
+              v-if="!entry.isDir && isImageFile(entry.name)"
+              class="file-thumb"
+              :src="getFileDownloadUrl(entry.path)"
+              loading="lazy"
+              alt=""
+            />
+            <span v-else-if="!entry.isDir && isPdf(entry.name)" class="pdf-badge">PDF</span>
+            <span v-else class="file-icon">{{ getFileIcon(entry) }}</span>
+            <span class="file-name-text">{{ entry.name }}</span>
           </div>
           <div class="file-size">{{ entry.isDir ? '—' : formatSize(entry.size) }}</div>
           <div class="file-date">{{ formatDate(entry.modTime) }}</div>
@@ -181,6 +193,37 @@ async function handleDownload(entry: FileEntry) {
 
 .file-icon {
   flex-shrink: 0;
+}
+
+.file-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-thumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid $border-color;
+  background: $bg-secondary;
+}
+
+.pdf-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  background: #c0392b;
 }
 
 .file-size {
