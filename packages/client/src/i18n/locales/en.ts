@@ -44,6 +44,14 @@ export default {
     defaultCredentialMessage: 'This account is still using the default username or password. To prevent unauthorized access, update the username and password as soon as possible.',
     defaultCredentialAction: 'Update now',
     defaultCredentialLater: 'Remind me later',
+    defaultCredentialKeep: 'Keep current password',
+    defaultCredentialGenerate: 'Auto-generate a strong password',
+    passwordGeneratedTitle: 'New password generated',
+    passwordGeneratedHint: 'Copy and store it now — this password is shown only once.',
+    passwordSavedClose: 'I have saved it, close',
+    generateFailed: 'Failed to set a new password',
+    copy: 'Copy',
+    copied: 'Copied',
   },
 
   users: {
@@ -615,6 +623,12 @@ export default {
     },
   },
 
+  modelPrompt: {
+    title: 'No model configured',
+    message: 'There is no usable model yet. Add a model (provider + key) first to start chatting.',
+    later: 'Later',
+    go: 'Go to Models',
+  },
   pair: {
     title: 'Connect to Hermes',
     subtitle: 'Enter a pairing code to connect to the host Hermes',

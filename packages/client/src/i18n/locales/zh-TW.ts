@@ -44,6 +44,14 @@ export default {
     defaultCredentialMessage: '目前登入帳號仍在使用預設使用者名稱或預設密碼。為避免未授權存取，請盡快進入目前帳號修改使用者名稱和密碼。',
     defaultCredentialAction: '去修改',
     defaultCredentialLater: '稍後提醒',
+    defaultCredentialKeep: '繼續使用原密碼',
+    defaultCredentialGenerate: '自動產生高強度密碼',
+    passwordGeneratedTitle: '新密碼已產生',
+    passwordGeneratedHint: '請立刻複製並妥善保存——這串密碼只會顯示這一次。',
+    passwordSavedClose: '我已保存，關閉',
+    generateFailed: '產生密碼失敗',
+    copy: '複製',
+    copied: '已複製',
   },
 
   users: {
@@ -616,6 +624,12 @@ export default {
   },
 
   // 插件
+  modelPrompt: {
+    title: '尚未設定模型',
+    message: '目前還沒有可用的模型。請先新增一個模型（填入提供者與金鑰），才能開始對話。',
+    later: '稍後',
+    go: '前往模型設定',
+  },
   pair: {
     title: '連線到 Hermes',
     subtitle: '輸入配對碼即可連上主人的 Hermes',
