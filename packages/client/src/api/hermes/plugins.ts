@@ -35,3 +35,24 @@ export interface HermesPluginsResponse {
 export async function fetchPlugins(): Promise<HermesPluginsResponse> {
   return request<HermesPluginsResponse>('/api/hermes/plugins')
 }
+
+export interface CapabilityConfig {
+  profile: string
+  providers: Record<string, string>
+  envKeys: string[]
+}
+
+export async function fetchCapabilityConfig(): Promise<CapabilityConfig> {
+  return request<CapabilityConfig>('/api/hermes/plugins/capability-config')
+}
+
+export async function saveCapabilityConfig(payload: {
+  capability?: string
+  provider?: string
+  env?: Record<string, string>
+}): Promise<{ ok: boolean; profile: string }> {
+  return request<{ ok: boolean; profile: string }>('/api/hermes/plugins/capability-config', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
