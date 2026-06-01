@@ -22,7 +22,10 @@ const ready = ref(false)
 const themeOverrides = computed(() => getThemeOverrides(isDark.value, isComic.value))
 const naiveTheme = computed(() => isDark.value ? darkTheme : null)
 
-const isLoginPage = computed(() => route.name === 'login')
+// Public pages (login, external pairing) render without the app chrome and must
+// NOT fire authenticated requests on mount — on /pair there is no token yet, so
+// loadModels() would 401 and bounce the device straight back to login.
+const isLoginPage = computed(() => route.meta.public === true || route.name === 'login')
 
 const nodeVersionLow = computed(() => {
   const v = appStore.nodeVersion
