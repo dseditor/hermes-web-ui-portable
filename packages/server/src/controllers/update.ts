@@ -1,6 +1,7 @@
 import { execFile, execFileSync, spawn, type ChildProcess } from 'child_process'
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { appendFileSync, closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { createServer } from 'net'
+import { tmpdir } from 'os'
 import { delimiter, dirname, extname, join, resolve } from 'path'
 import { getWebUiHome } from '../config'
 
@@ -321,50 +322,11 @@ function getPreviewViteHostArg() {
   return isTermuxRuntime() ? '127.0.0.1' : ''
 }
 
-function getGlobalPackageBin(root: string) {
-  return join(root, 'hermes-web-ui', 'bin', 'hermes-web-ui.mjs')
-}
-
 function getCurrentNodeEnv() {
   return {
     ...process.env,
     PATH: [getNodeBinDir(), process.env.PATH].filter(Boolean).join(delimiter),
     npm_node_execpath: process.execPath,
-  }
-}
-
-function runNpm(args: string[], options: { timeout?: number; cwd?: string; logLabel?: string; env?: NodeJS.ProcessEnv } = {}) {
-  const env = {
-    ...getCurrentNodeEnv(),
-    ...options.env,
-  }
-  const execution = npmExecution(args, env)
-  const label = options.logLabel || ''
-
-  if (label) appendPreviewActionLog(`${label}: ${execution.command} ${execution.args.join(' ')}${options.cwd ? `\ncwd: ${options.cwd}` : ''}`)
-  try {
-    const output = execFileSync(execution.command, execution.args, {
-      encoding: 'utf-8',
-      timeout: options.timeout,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env,
-      cwd: options.cwd,
-      windowsHide: true,
-    }).trim()
-    if (label) {
-      if (output) appendPreviewActionLog(`${label} output:\n${output}`)
-      appendPreviewActionLog(`${label} completed`)
-    }
-    return output
-  } catch (err: any) {
-    if (label) {
-      const stderr = err.stderr?.toString() || ''
-      const stdout = err.stdout?.toString() || ''
-      appendPreviewActionLog(`${label} failed`)
-      if (stdout) appendPreviewActionLog(`${label} stdout:\n${stdout}`)
-      if (stderr) appendPreviewActionLog(`${label} stderr:\n${stderr}`)
-    }
-    throw err
   }
 }
 
@@ -997,37 +959,256 @@ async function checkoutPreview(ref: string) {
   appendPreviewActionLog(`preview tag ready: ${ref}`)
 }
 
-function getGlobalRoot() {
-  return runNpm(['root', '-g'])
-}
+// ─── Portable self-update (fork GitHub Releases) ──────────────
+//
+// The official build updated via `npm i -g hermes-web-ui@latest`. For the
+// portable distribution we instead pull a prebuilt release asset from the
+// configured fork (package.json -> repository.url), extract it next to the
+// install folder, and hand off to a detached updater script. Windows cannot
+// overwrite the files of a running node process, so the updater stops this
+// server, copies the new files over the install folder, then relaunches the
+// CLI. User data lives in a sibling data/ folder and is never touched.
 
-function getGlobalCliScript() {
-  const cli = getGlobalPackageBin(getGlobalRoot())
-  if (!existsSync(cli)) {
-    throw new Error(`Updated hermes-web-ui CLI not found: ${cli}`)
-  }
-  return cli
-}
+const UPDATE_STAGING_DIR_NAME = '.hermes-web-ui-update'
+const UPDATE_LOG_NAME = 'update.log'
 
-function runUpdateInstall() {
+function appendUpdateLog(message: string) {
   try {
-    runNpm(['cache', 'clean', '--force'], { timeout: 2 * 60 * 1000 })
-  } catch (err) {
-    console.warn('[update] failed to clean npm cache, continuing update:', err)
-  }
-
-  return runNpm(['install', '-g', 'hermes-web-ui@latest'], { timeout: 10 * 60 * 1000 })
+    const home = getWebUiHome()
+    mkdirSync(home, { recursive: true })
+    appendFileSync(join(home, UPDATE_LOG_NAME), `[${new Date().toISOString()}] ${message}\n`, 'utf-8')
+  } catch {}
 }
 
-function spawnRestart(port: string) {
-  const cli = getGlobalCliScript()
+function getInstallRoot(): string {
+  const candidates = [
+    resolve(__dirname, '../../../../'), // ts-node dev: packages/server/src/controllers -> repo root
+    resolve(__dirname, '../../'),       // bundled server: dist/server -> repo root
+    process.cwd(),
+  ]
+  for (const dir of candidates) {
+    const packagePath = join(dir, 'package.json')
+    if (!existsSync(packagePath)) continue
+    try {
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      if (pkg?.name === 'hermes-web-ui') return dir
+    } catch {}
+  }
+  return resolve(__dirname, '../../')
+}
 
-  return spawn(process.execPath, [cli, 'restart', '--port', port], {
+interface ReleaseAsset {
+  name: string
+  browser_download_url: string
+  size: number
+}
+
+interface LatestRelease {
+  tag_name: string
+  name?: string
+  html_url?: string
+  assets: ReleaseAsset[]
+}
+
+async function fetchLatestRelease(): Promise<LatestRelease> {
+  const { owner, repo } = getPreviewGithubRepoParts()
+  const url = `https://api.github.com/repos/${owner}/${repo}/releases/latest`
+  appendUpdateLog(`fetch latest release: ${url}`)
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'hermes-web-ui-update', Accept: 'application/vnd.github+json' },
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (res.status === 404) {
+    throw new Error('No published release was found on the update repository yet.')
+  }
+  if (!res.ok) {
+    throw new Error(`GitHub releases API returned HTTP ${res.status}`)
+  }
+  return await res.json() as LatestRelease
+}
+
+function pickPortableAsset(release: LatestRelease): ReleaseAsset {
+  const archives = (release.assets || []).filter(asset => /\.(zip|tar\.gz|tgz)$/i.test(asset.name))
+  if (!archives.length) {
+    throw new Error(`Release ${release.tag_name} has no downloadable .zip / .tar.gz asset.`)
+  }
+  const preferred = archives.find(asset => /portable|hermes-web-ui/i.test(asset.name))
+  return preferred || archives[0]
+}
+
+async function extractUpdateArchive(archivePath: string, destDir: string) {
+  mkdirSync(destDir, { recursive: true })
+  if (/\.zip$/i.test(archivePath)) {
+    if (process.platform === 'win32') {
+      await execFileText('powershell.exe', [
+        '-NoProfile',
+        '-Command',
+        `Expand-Archive -LiteralPath ${JSON.stringify(archivePath)} -DestinationPath ${JSON.stringify(destDir)} -Force`,
+      ], { timeout: 10 * 60 * 1000 })
+    } else {
+      await execFileText('unzip', ['-q', '-o', archivePath, '-d', destDir], { timeout: 10 * 60 * 1000 })
+    }
+  } else {
+    await execFileText('tar', ['-xzf', archivePath, '-C', destDir], { timeout: 10 * 60 * 1000 })
+  }
+}
+
+async function prepareReleaseStaging(asset: ReleaseAsset): Promise<string> {
+  const installRoot = getInstallRoot()
+  const stagingDir = resolve(installRoot, '..', UPDATE_STAGING_DIR_NAME)
+  const archivePath = `${stagingDir}${/\.zip$/i.test(asset.name) ? '.zip' : '.tar.gz'}`
+
+  rmSync(stagingDir, { recursive: true, force: true })
+  rmSync(archivePath, { force: true })
+  mkdirSync(dirname(stagingDir), { recursive: true })
+
+  appendUpdateLog(`download asset: ${asset.name} (${asset.size} bytes)`)
+  const res = await fetch(asset.browser_download_url, {
+    headers: { 'User-Agent': 'hermes-web-ui-update', Accept: 'application/octet-stream' },
+    signal: AbortSignal.timeout(10 * 60 * 1000),
+  })
+  if (!res.ok) throw new Error(`Failed to download release asset: HTTP ${res.status}`)
+  const buffer = Buffer.from(await res.arrayBuffer())
+  writeFileSync(archivePath, buffer)
+  appendUpdateLog(`downloaded ${buffer.length} bytes -> ${archivePath}`)
+
+  try {
+    await extractUpdateArchive(archivePath, stagingDir)
+  } finally {
+    rmSync(archivePath, { force: true })
+  }
+
+  // A release archive may wrap everything in a single top-level folder; if so,
+  // use that folder as the source root so robocopy/cp maps onto the install root.
+  const entries = readdirSync(stagingDir).filter(Boolean)
+  const sourceDir = entries.length === 1 && statSync(join(stagingDir, entries[0])).isDirectory()
+    ? join(stagingDir, entries[0])
+    : stagingDir
+  appendUpdateLog(`extracted release to: ${sourceDir}`)
+  return sourceDir
+}
+
+function getUpdaterScriptPath(): string {
+  const installRoot = getInstallRoot()
+  const scriptName = process.platform === 'win32' ? 'apply-update.bat' : 'apply-update.sh'
+  const scriptPath = join(installRoot, scriptName)
+  if (!existsSync(scriptPath)) {
+    throw new Error(`Updater script not found: ${scriptPath}`)
+  }
+  return scriptPath
+}
+
+function spawnApplyUpdate(sourceDir: string): void {
+  const installRoot = getInstallRoot()
+  const scriptPath = getUpdaterScriptPath()
+  const nodeExe = process.execPath
+  const cliMjs = join(installRoot, 'bin', 'hermes-web-ui.mjs')
+  const port = String(process.env.PORT || '8648')
+  const serverPid = String(process.pid)
+
+  if (process.platform === 'win32') {
+    // Two hard Windows constraints shaped this:
+    //  1. The updater overwrites the install folder including its own .bat, and
+    //     cmd.exe reads a .bat line-by-line from disk — so the running script must
+    //     live OUTSIDE the install folder (temp copy).
+    //  2. A child spawned by this server shares the server's job object; when the
+    //     server is force-killed the job is torn down and takes the updater with
+    //     it mid-copy (observed: copy succeeds but cleanup + relaunch never run).
+    //     So the updater must be launched fully detached from this process tree.
+    //
+    // We write a self-contained temp script (values baked in as `set` lines, no
+    // args) and launch it via WMI Win32_Process.Create, which parents it to
+    // WmiPrvSE — outside this server's tree and job. The relaunch goes through
+    // the portable start.bat, which rebuilds the runtime environment itself, so a
+    // clean WMI environment is fine.
+    const header = [
+      '@echo off',
+      `set "SOURCE=${sourceDir}"`,
+      `set "INSTALL=${installRoot}"`,
+      `set "NODE=${nodeExe}"`,
+      `set "CLI=${cliMjs}"`,
+      `set "PORT=${port}"`,
+      `set "SERVERPID=${serverPid}"`,
+      '',
+    ].join('\r\n')
+    // Normalize the WHOLE script to CRLF. cmd.exe navigates `call :label` /
+    // `goto :eof` by byte offset; mixing CRLF (this header) with an LF-saved
+    // apply-update.bat body makes that bookkeeping drift one byte per line, and
+    // after a handful of `call :log` round-trips the resume position lands
+    // mid-statement and the script silently dies (observed: it died right after
+    // the 5th log line, just past a successful robocopy). Consistent CRLF fixes it.
+    const runnerPath = join(tmpdir(), 'hermes-apply-update.bat')
+    const runnerContent = (header + readFileSync(scriptPath, 'utf-8')).replace(/\r?\n/g, '\r\n')
+    writeFileSync(runnerPath, runnerContent, 'utf-8')
+
+    // The WMI launch logic goes in a .ps1 run via -File, NOT a -Command string:
+    // passing a PowerShell command with embedded quotes through Node's argv ->
+    // Windows -> powershell escaping mangles the quotes, so the WMI CommandLine
+    // arrives malformed and the bat never runs. A .ps1 file sidesteps escaping
+    // entirely (-File takes a bare path). The WMI ReturnValue is logged for
+    // diagnostics (0 = success).
+    const ps1Path = join(tmpdir(), 'hermes-apply-update.ps1')
+    const wmiLogPath = join(tmpdir(), 'hermes-apply-update.wmi.txt')
+    const psBat = runnerPath.replace(/'/g, "''")
+    const psLog = wmiLogPath.replace(/'/g, "''")
+    const ps1 = [
+      "$ErrorActionPreference = 'Stop'",
+      `$bat = '${psBat}'`,
+      `$log = '${psLog}'`,
+      'try {',
+      "  $startup = ([WMIClass]'Win32_ProcessStartup').CreateInstance()",
+      '  $startup.ShowWindow = 0',
+      '  $r = ([WMIClass]\'Win32_Process\').Create("cmd.exe /c `"$bat`"", $null, $startup)',
+      '  "WMI ReturnValue=$($r.ReturnValue) PID=$($r.ProcessId)" | Out-File -FilePath $log -Encoding ascii',
+      '} catch {',
+      '  "WMI EXCEPTION: $_" | Out-File -FilePath $log -Encoding ascii',
+      '}',
+    ].join('\r\n')
+    writeFileSync(ps1Path, ps1, 'utf-8')
+
+    // Use the ABSOLUTE path to powershell.exe. The portable rewrites PATH to
+    // "node_portable;%PATH%" and WindowsPowerShell\v1.0 may not be present, so a
+    // bare 'powershell.exe' spawn fails with ENOENT — silently, unless we listen
+    // for 'error'. (The WMI-launched cmd inherits the full system PATH, so the
+    // updater's own powershell/taskkill/robocopy calls resolve fine.)
+    const systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
+    const powershellExe = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+
+    // NOT detached: detached => DETACHED_PROCESS => no console, and powershell
+    // silently fails to run a -File script without a console. powershell only
+    // needs to call WMI Create (synchronous) and exit; the WMI-created cmd is
+    // parented to WmiPrvSE and survives independently, so powershell itself does
+    // not need to outlive this server.
+    appendUpdateLog(`spawn updater (WMI via ps1): ${powershellExe} -File ${ps1Path} -> ${runnerPath}`)
+    const child = spawn(powershellExe, [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ps1Path,
+    ], {
+      stdio: 'ignore',
+      windowsHide: true,
+      cwd: tmpdir(),
+      env: process.env,
+    })
+    child.on('error', (err) => {
+      appendUpdateLog(`updater spawn error: ${err instanceof Error ? err.message : String(err)}`)
+      updateInProgress = false
+    })
+    child.unref()
+    return
+  }
+
+  // POSIX: a detached child survives the parent and there is no job-object
+  // teardown, so run a temp copy of the shell updater directly.
+  const runnerPath = join(tmpdir(), 'hermes-apply-update.sh')
+  copyFileSync(scriptPath, runnerPath)
+  const args = [sourceDir, installRoot, nodeExe, cliMjs, port, serverPid]
+  appendUpdateLog(`spawn updater: ${runnerPath} ${args.join(' ')}`)
+  const child = spawn('/bin/sh', [runnerPath, ...args], {
     detached: true,
     stdio: 'ignore',
-    windowsHide: true,
-    env: getCurrentNodeEnv(),
+    cwd: tmpdir(),
+    env: process.env,
   })
+  child.unref()
 }
 
 export async function handleUpdate(ctx: any) {
@@ -1043,42 +1224,45 @@ export async function handleUpdate(ctx: any) {
   updateInProgress = true
 
   try {
-    const output = runUpdateInstall()
+    const localVersion = readPackageInfo()?.version || ''
+    const release = await fetchLatestRelease()
+    const remoteVersion = (release.tag_name || '').replace(/^v/i, '')
+    const asset = pickPortableAsset(release)
+
+    appendUpdateLog(`update requested: local=${localVersion} latest=${remoteVersion} asset=${asset.name}`)
+
+    // Fail fast if the updater script is missing before downloading anything heavy.
+    getUpdaterScriptPath()
+
+    const sourceDir = await prepareReleaseStaging(asset)
 
     ctx.body = {
       success: true,
-      message: output.trim() || 'hermes-web-ui updated successfully',
+      message: `Downloaded ${remoteVersion || asset.name}. Applying update and restarting the server…`,
+      from_version: localVersion,
+      to_version: remoteVersion,
+      asset: asset.name,
     }
 
+    // Hand off to the detached updater after the HTTP response has flushed. The
+    // updater force-stops this server (Windows cannot overwrite open files),
+    // copies the new files over the install folder, then relaunches the CLI.
     setTimeout(() => {
-      let restart
       try {
-        restart = spawnRestart(process.env.PORT || '8648')
+        spawnApplyUpdate(sourceDir)
       } catch (err) {
         updateInProgress = false
-        console.error('[update] failed to spawn restart:', err)
-        return
+        appendUpdateLog(`failed to spawn updater: ${err instanceof Error ? err.message : String(err)}`)
+        console.error('[update] failed to spawn updater:', err)
       }
-
-      restart.on('error', (err) => {
-        updateInProgress = false
-        console.error('[update] restart process failed:', err)
-      })
-      restart.on('exit', (code, signal) => {
-        updateInProgress = false
-        const failed = (typeof code === 'number' && code !== 0) || Boolean(signal)
-        if (failed) {
-          console.error(`[update] restart process exited before replacing server: code=${code} signal=${signal}`)
-        }
-      })
-      restart.unref()
-    }, 3000)
+    }, 800)
   } catch (err: any) {
     updateInProgress = false
+    appendUpdateLog(`update failed: ${err?.stderr?.toString() || err?.message || String(err)}`)
     ctx.status = 500
     ctx.body = {
       success: false,
-      message: err.stderr?.toString() || err.message || String(err),
+      message: err?.stderr?.toString() || err?.message || String(err),
     }
   }
 }

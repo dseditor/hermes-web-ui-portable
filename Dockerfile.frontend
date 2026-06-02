@@ -31,6 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
+# Install cloudflared so the in-app "external pairing" tunnel works in Linux/Docker
+# (this image runs the web-ui server, which owns the pairing/tunnel feature).
+RUN ARCH=$(dpkg --print-architecture) \
+    && echo "Downloading cloudflared for ${ARCH}" \
+    && curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" \
+       -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared \
+    && cloudflared --version
+
 WORKDIR /app
 
 # Install deps first (better layer caching). node-pty is rebuilt explicitly.
@@ -46,6 +55,8 @@ ENV NODE_ENV=production
 # Persist the web-ui DB / auth token / session history here (mount a volume).
 ENV HERMES_WEB_UI_HOME=/data
 ENV PORT=8648
+# Enable the external-pairing tunnel via the cloudflared installed above.
+ENV HERMES_TUNNEL_CLOUDFLARED=/usr/local/bin/cloudflared
 # Remote backend (set real values at runtime / via compose .env).
 ENV HERMES_REMOTE_API_URL=""
 ENV HERMES_REMOTE_API_KEY=""
