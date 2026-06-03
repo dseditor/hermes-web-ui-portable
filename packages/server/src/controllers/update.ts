@@ -1032,8 +1032,20 @@ function pickPortableAsset(release: LatestRelease): ReleaseAsset {
   if (!archives.length) {
     throw new Error(`Release ${release.tag_name} has no downloadable .zip / .tar.gz asset.`)
   }
-  const preferred = archives.find(asset => /portable|hermes-web-ui/i.test(asset.name))
-  return preferred || archives[0]
+  // A release may ship BOTH a lean self-update payload and a full standalone
+  // portable bundle: first-time users download the full bundle, while existing
+  // installs self-update with the lean payload. The in-app updater overlays the
+  // asset onto the CURRENT install (additive copy of dist/bin; node_modules and
+  // bundled python are preserved), so it must ALWAYS take the lean *update*
+  // payload. The full portable has a different internal root (it wraps the whole
+  // portable, not the hermes-web-ui package) and would land in the wrong place.
+  // Convention: name the update payload with "update" (e.g.
+  // `hermes-web-ui-update-vX.Y.Z.zip`); the full bundle must NOT contain "update".
+  const updatePayload = archives.find(asset => /update/i.test(asset.name))
+  if (updatePayload) return updatePayload
+  // Back-compat: single-asset releases that predate the two-asset convention.
+  const legacy = archives.find(asset => /portable|hermes-web-ui/i.test(asset.name))
+  return legacy || archives[0]
 }
 
 async function extractUpdateArchive(archivePath: string, destDir: string) {
