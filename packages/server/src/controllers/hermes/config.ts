@@ -9,6 +9,7 @@ import { safeFileStore } from '../../services/safe-file-store'
 const PLATFORM_SECTIONS = new Set([
   'telegram', 'discord', 'slack', 'whatsapp', 'matrix',
   'weixin', 'wecom', 'feishu', 'dingtalk', 'qqbot',
+  'line',
   'approvals',
 ])
 
@@ -51,6 +52,15 @@ const envPlatformMap: Record<string, [string, string]> = {
   WEIXIN_ACCOUNT_ID: ['weixin', 'extra.account_id'],
   WEIXIN_BASE_URL: ['weixin', 'extra.base_url'],
   WHATSAPP_ENABLED: ['whatsapp', 'enabled'],
+  // LINE (Messaging API) — maps to hermes-agent plugins/platforms/line env vars
+  LINE_CHANNEL_ACCESS_TOKEN: ['line', 'channel_access_token'],
+  LINE_CHANNEL_SECRET: ['line', 'channel_secret'],
+  LINE_PUBLIC_URL: ['line', 'public_url'],
+  LINE_ALLOWED_USERS: ['line', 'allowed_users'],
+  LINE_ALLOWED_GROUPS: ['line', 'allowed_groups'],
+  LINE_ALLOWED_ROOMS: ['line', 'allowed_rooms'],
+  LINE_ALLOW_ALL_USERS: ['line', 'allow_all_users'],
+  LINE_HOME_CHANNEL: ['line', 'extra.home_channel'],
 }
 
 const platformEnvMap: Record<string, Record<string, string>> = {}
