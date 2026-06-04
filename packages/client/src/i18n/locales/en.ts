@@ -188,6 +188,7 @@ export default {
   // Sidebar
   sidebar: {
     chat: 'Chat',
+    sessions: 'Sessions',
     search: 'Search',
     apiRelay: 'API Relay',
     history: 'History',
@@ -1005,7 +1006,11 @@ export default {
     title: 'Settings',
     saved: 'Saved',
     saveFailed: 'Save failed',
+    backToChat: 'Back to Chat',
+    backToSettings: 'Back to Settings',
+    featuresHint: 'All advanced tools and management pages live here.',
     tabs: {
+      features: 'Features',
       display: 'Display',
       account: 'Current Account',
       users: 'Account Management',

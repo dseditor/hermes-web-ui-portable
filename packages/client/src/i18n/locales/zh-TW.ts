@@ -188,6 +188,7 @@ export default {
 
   sidebar: {
     chat: '對話',
+    sessions: '工作階段',
     search: '搜尋',
     apiRelay: '中轉站',
     history: '歷史',
@@ -997,7 +998,11 @@ export default {
     title: '設定',
     saved: '已儲存',
     saveFailed: '儲存失敗',
+    backToChat: '返回對話',
+    backToSettings: '返回設定',
+    featuresHint: '所有進階工具與管理頁面都收在這裡。',
     tabs: {
+      features: '功能',
       display: '顯示',
       account: '目前帳號',
       users: '帳號管理',

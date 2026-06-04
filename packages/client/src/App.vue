@@ -28,6 +28,26 @@ const naiveTheme = computed(() => isDark.value ? darkTheme : null)
 // loadModels() would 401 and bounce the device straight back to login.
 const isLoginPage = computed(() => route.meta.public === true || route.name === 'login')
 
+// Primary destinations kept in the slim sidebar. Every other authenticated
+// hermes.* page is a "feature" opened from Settings, so it shows a back bar
+// to return there — without each view having to implement its own.
+const PRIMARY_ROUTES = new Set([
+  'hermes.chat',
+  'hermes.session',
+  'hermes.models',
+  'hermes.skills',
+  'hermes.plugins',
+  'hermes.settings',
+])
+const showBackToSettings = computed(() => {
+  if (isLoginPage.value) return false
+  const name = typeof route.name === 'string' ? route.name : ''
+  return name.startsWith('hermes.') && !PRIMARY_ROUTES.has(name)
+})
+function backToSettings() {
+  router.push({ name: 'hermes.settings' })
+}
+
 const nodeVersionLow = computed(() => {
   const v = appStore.nodeVersion
   const major = parseInt(v.split('.')[0], 10)
@@ -74,6 +94,13 @@ useKeyboard()
             <div v-if="!isLoginPage && appStore.sidebarOpen" class="mobile-backdrop" @click="appStore.closeSidebar" />
             <AppSidebar v-if="!isLoginPage" />
             <main class="app-main">
+              <button v-if="showBackToSettings" class="back-to-settings-bar" @click="backToSettings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+                <span>{{ t('settings.backToSettings') }}</span>
+              </button>
               <router-view />
             </main>
           </div>
@@ -104,9 +131,39 @@ useKeyboard()
   flex: 1;
   overflow-y: auto;
   background-color: $bg-primary;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 
   .no-sidebar & {
     height: calc(100 * var(--vh));
+  }
+
+  > :deep(*) {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.back-to-settings-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 1px solid $border-color;
+  background-color: $bg-secondary;
+  color: $text-secondary;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color $transition-fast, background-color $transition-fast;
+
+  &:hover {
+    color: $text-primary;
+    background-color: $bg-card-hover;
   }
 }
 

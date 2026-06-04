@@ -25,11 +25,13 @@ const settingsStore = useSettingsStore();
 const profilesStore = useProfilesStore();
 const { t } = useI18n();
 const canManageUsers = isStoredSuperAdmin();
+const isSuperAdmin = isStoredSuperAdmin();
 const route = useRoute();
 const router = useRouter();
-const activeTab = ref("account");
+const activeTab = ref("features");
 
 const validTabs = computed(() => new Set([
+  "features",
   "account",
   ...(canManageUsers ? ["users"] : []),
   "display",
@@ -44,7 +46,41 @@ const validTabs = computed(() => new Set([
 
 function normalizeTab(value: unknown): string {
   const tab = typeof value === "string" ? value : "";
-  return validTabs.value.has(tab) ? tab : "account";
+  return validTabs.value.has(tab) ? tab : "features";
+}
+
+// "Feature shortcuts" hub — every page that used to live in the sidebar now
+// opens from here. Each card simply navigates to its existing route, so no
+// feature page logic changes; those pages show a back bar to return here.
+type FeatureLink = { name: string; labelKey: string; superAdmin?: boolean };
+const featureLinks: FeatureLink[] = [
+  { name: "hermes.history", labelKey: "sidebar.history" },
+  { name: "hermes.groupChat", labelKey: "sidebar.groupChat" },
+  { name: "hermes.jobs", labelKey: "sidebar.jobs" },
+  { name: "hermes.kanban", labelKey: "sidebar.kanban" },
+  { name: "hermes.channels", labelKey: "sidebar.channels" },
+  { name: "hermes.mcp", labelKey: "sidebar.mcp", superAdmin: true },
+  { name: "hermes.memory", labelKey: "sidebar.memory" },
+  { name: "hermes.logs", labelKey: "sidebar.logs" },
+  { name: "hermes.usage", labelKey: "sidebar.usage" },
+  { name: "hermes.performance", labelKey: "sidebar.performance", superAdmin: true },
+  { name: "hermes.skillsUsage", labelKey: "sidebar.skillsUsage" },
+  { name: "hermes.codingAgents", labelKey: "sidebar.codingAgents" },
+  { name: "hermes.terminal", labelKey: "sidebar.terminal" },
+  { name: "hermes.files", labelKey: "sidebar.files" },
+  { name: "hermes.profiles", labelKey: "sidebar.profiles", superAdmin: true },
+  { name: "hermes.pairing", labelKey: "sidebar.pairing", superAdmin: true },
+];
+const visibleFeatures = computed(() => featureLinks.filter(link =>
+  router.hasRoute(link.name) && (!link.superAdmin || isSuperAdmin),
+));
+
+function openFeature(name: string) {
+  router.push({ name });
+}
+
+function backToChat() {
+  router.push({ name: "hermes.chat" });
 }
 
 function handleTabUpdate(tab: string) {
@@ -76,6 +112,13 @@ onMounted(() => {
 <template>
   <div class="settings-view">
     <header class="page-header">
+      <button class="back-to-chat" type="button" @click="backToChat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>{{ t("settings.backToChat") }}</span>
+      </button>
       <h2 class="header-title">{{ t("settings.title") }}</h2>
     </header>
 
@@ -86,6 +129,25 @@ onMounted(() => {
         :description="t('common.loading')"
       >
         <NTabs v-model:value="activeTab" type="line" animated @update:value="handleTabUpdate">
+          <NTabPane name="features" :tab="t('settings.tabs.features')">
+            <div class="features-hub">
+              <p class="features-hint">{{ t("settings.featuresHint") }}</p>
+              <div class="features-grid">
+                <button
+                  v-for="link in visibleFeatures"
+                  :key="link.name"
+                  class="feature-card"
+                  type="button"
+                  @click="openFeature(link.name)"
+                >
+                  <span class="feature-card-label">{{ t(link.labelKey) }}</span>
+                  <svg class="feature-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </NTabPane>
           <NTabPane name="account" :tab="t('settings.tabs.account')">
             <AccountSettings />
           </NTabPane>
@@ -131,9 +193,90 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid $border-color;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.back-to-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  background: $bg-secondary;
+  color: $text-secondary;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $text-primary;
+    background: $bg-card-hover;
+  }
+}
+
 .settings-content {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+}
+
+.features-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.features-hint {
+  margin: 0;
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.feature-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  background: $bg-card;
+  color: $text-primary;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all $transition-fast;
+
+  &:hover {
+    border-color: $accent-muted;
+    background: $bg-card-hover;
+    transform: translateY(-1px);
+  }
+
+  .feature-card-arrow {
+    color: $text-muted;
+    flex-shrink: 0;
+  }
 }
 </style>

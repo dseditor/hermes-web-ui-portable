@@ -180,6 +180,7 @@ export default {
 
   sidebar: {
     chat: '对话',
+    sessions: '工作阶段',
     search: '搜索',
     apiRelay: '中转站',
     history: '历史',
@@ -902,7 +903,11 @@ export default {
     title: '设置',
     saved: '已保存',
     saveFailed: '保存失败',
+    backToChat: '返回对话',
+    backToSettings: '返回设置',
+    featuresHint: '所有进阶工具与管理页面都收在这里。',
     tabs: {
+      features: '功能',
       display: '显示',
       account: '当前账户',
       users: '账户管理',
