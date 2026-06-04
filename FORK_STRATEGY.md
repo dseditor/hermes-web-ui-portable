@@ -89,17 +89,26 @@ npx vue-tsc -b && npx vite build
 
 ---
 
-## 待辦：0.6.10 值得移植的內頁功能候選（第 2 層，待主人勾選）
+## 0.6.10 內頁功能候選（第 2 層）
 
-| Commit | 功能 | 風險 |
-|--------|------|------|
-| b569320 #1296 | 分頁標題反映 session 名稱 | 低 |
-| ae38921 #1279 | Kanban 顯示 task ID / parent task ID | 低 |
-| fd2b42a #1262 | 工作區文字檔預覽 | 中（我們有 Preview tab，需確認不重複） |
-| efca285 #1195 | memory 允許空內容儲存 | 低 |
-| 1fbbfdf #1184 | 優先採用 provider context 長度 | 中（碰 model-context，避開 apikey.fun） |
-| 3f7242a #1197 | 修正手機虛擬鍵盤版面溢出 | 低 |
-| f978a5b #1311 | 工作區資料夾選擇器 i18n | 低（我們動過 FolderPicker） |
-| b00ada4 #1236 | provider auth profile scoping 修正 | 中（碰 provider，須剔除 apikey.fun） |
+| Commit | 功能 | 風險 | 狀態 |
+|--------|------|------|------|
+| b569320 #1296 | 分頁標題反映 session 名稱 | 低 | ✅ 已移植 `0f321a7` |
+| ae38921 #1279 | Kanban 顯示 task ID / parent task ID | 低 | ✅ 已移植 `9aacb71` |
+| efca285 #1195 | memory 允許空內容儲存 | 低 | ✅ 已移植 `73697d9` |
+| 3f7242a #1197 | 修正手機虛擬鍵盤版面溢出 | 低 | ✅ 已移植 `e978740` |
+| b00ada4 #1236 | provider auth profile scoping 修正 | 中 | ✅ 已移植 `f5c1646`（providers.ts 衝突 4 處 → 保留我們清單、只收 auth 邏輯，無 apikey.fun） |
+| e664845 #1263 | 輔助模型壓縮設定（省 token） | 中 | ✅ 已移植 `eb083c4`（ru.ts 保持刪除） |
+| 1fbbfdf #1184 | 優先採用 provider context 長度 | 中 | ⏭️ **刻意跳過**：上游指定的模型 context 常太小、不夠 agent 用，context 長度由我們自控 |
+| fd2b42a #1262 | 工作區文字檔預覽 | 中 | ⏸️ 未取（我們已有 Preview tab，需確認不重複再決定） |
+| f978a5b #1311 | 工作區資料夾選擇器 i18n | 低 | ⏸️ 未取（看 FolderPicker 中文有無缺字再決定） |
 
-> 勾選後逐一 cherry-pick，每個都跑雙綠燈再進下一個。
+> 移植原則：逐一 cherry-pick，每個都跑三層驗證再進下一個 —— `vue-tsc -b`、`vite build`、`tsc -p packages/server/tsconfig.json`。碰 server 的還要 `node scripts/build-server.mjs` 重建 dist/server，且**重啟 :8648 進程**才生效。
+
+## 移植記錄
+
+- **2026-06-04**：從 0.6.10 移植 6 個內頁功能（上表 ✅）。共同祖先仍是 `8dbf4c7`（用 cherry-pick 未動 merge-base）。三層編譯全綠。衝突兩處均手解：#1236 providers.ts 保留我方清單、#1263 ru.ts 保持刪除（fork 不含俄文）。
+
+## 未來想法（backlog，待研究）
+
+- **自動化審核排程**：設一個 Claude 排程，讓無頭 AI 依本文件的標準，定期掃描上游新 commit、自動篩出「綠色（低風險、與我們客製無交集）」候選並驗證導入。需先把「綠色判定準則」寫得夠機械化（領域分布、重疊檔、apikey.fun/desktop 排除規則），AI 才能照表執行。（主人 2026-06-04 提出）
