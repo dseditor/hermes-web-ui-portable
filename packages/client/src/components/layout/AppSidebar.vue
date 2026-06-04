@@ -86,7 +86,14 @@ watch(
 const isVersionPreview = import.meta.env.VITE_HERMES_PREVIEW === '1';
 
 // Restore the original collapsible groups (with persistence + short labels).
-const { record: collapsedGroups, persist: persistCollapsedGroups } = usePersistentRecord('hermes.sidebar.collapsedGroups');
+// Default to collapsed so entering the menu shows just the group headers — no
+// scrollbar needed on first open. (New storage key so the old expanded-by-
+// default state doesn't linger.)
+const GROUP_KEYS = ["conversation", "agent", "monitoring", "tools", "system"];
+const { record: collapsedGroups, persist: persistCollapsedGroups } = usePersistentRecord('hermes.sidebar.featureGroupsCollapsed');
+if (Object.keys(collapsedGroups).length === 0) {
+  GROUP_KEYS.forEach((k) => { collapsedGroups[k] = true; });
+}
 type SidebarGroupKey = "Conversation" | "Agent" | "Monitoring" | "Tools" | "System";
 function groupLabel(key: SidebarGroupKey) {
   return t(`sidebar.group${key}${appStore.sidebarCollapsed ? "Short" : ""}`);
@@ -570,12 +577,11 @@ function openChangelog() {
 }
 
 .nav-group-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: $sidebar-text-muted;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 8px 12px 4px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: $sidebar-text;
+  letter-spacing: 0.2px;
+  padding: 12px 12px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -585,17 +591,20 @@ function openChangelog() {
   transition: color $transition-fast;
 
   &:hover {
-    color: $sidebar-text;
+    color: $sidebar-active-text;
   }
 
   .nav-group:first-child & {
-    padding-top: 0;
+    padding-top: 4px;
   }
 }
 
 .nav-group-arrow {
+  width: 16px;
+  height: 16px;
   transition: transform $transition-fast;
   flex-shrink: 0;
+  opacity: 0.85;
 
   &.collapsed {
     transform: rotate(-90deg);
@@ -606,12 +615,12 @@ function openChangelog() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 11px 12px;
   border: none;
   background: none;
   appearance: none;
   text-decoration: none;
-  color: $sidebar-text-muted;
+  color: $sidebar-text;
   font-size: 14px;
   border-radius: $radius-sm;
   cursor: pointer;
