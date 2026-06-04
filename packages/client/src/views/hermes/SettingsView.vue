@@ -151,10 +151,4 @@ onMounted(() => {
   overflow-y: auto;
   padding: 20px;
 }
-
-// The settings tabs are now driven by the sidebar navigator, so the in-page
-// tab bar is hidden — only the active pane's content is shown on the right.
-:deep(.n-tabs-nav) {
-  display: none;
-}
 </style>

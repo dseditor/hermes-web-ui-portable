@@ -181,6 +181,7 @@ export default {
   sidebar: {
     chat: '对话',
     sessions: '工作阶段',
+    features: '功能',
     search: '搜索',
     apiRelay: '中转站',
     history: '历史',

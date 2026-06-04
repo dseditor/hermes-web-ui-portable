@@ -189,6 +189,7 @@ export default {
   sidebar: {
     chat: 'Chat',
     sessions: 'Sessions',
+    features: 'Features',
     search: 'Search',
     apiRelay: 'API Relay',
     history: 'History',

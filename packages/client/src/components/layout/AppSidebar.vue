@@ -10,6 +10,7 @@ import SessionListPanel from "./SessionListPanel.vue";
 import LanguageSwitch from "./LanguageSwitch.vue";
 import ThemeSwitch from "./ThemeSwitch.vue";
 import RouteLinkItem from '@/components/common/RouteLinkItem.vue'
+import { usePersistentRecord } from '@/composables/usePersistentRecord'
 import { changelog } from "@/data/changelog";
 import { isStoredSuperAdmin } from "@/api/client";
 
@@ -35,11 +36,18 @@ function isNavActive(...names: string[]) {
 }
 const logoPath = '/logo.png';
 
-// ─── Context-aware sidebar: chat mode vs settings mode ──────────────
-// In settings mode the sidebar turns into a configuration navigator (the
-// settings tabs + the relocated feature pages), with a back button to return
-// to the conversation session list. Every relocated feature route counts as
-// "settings mode" so the navigator stays put while configuring.
+// ─── Context-aware sidebar: chat mode vs feature menu ───────────────
+// Default (chat) mode shows the session list + a few common shortcuts. Opening
+// "Features" turns the sidebar into the original grouped menu (history, jobs,
+// mcp, logs ... and Settings as the last System item) — these are the pages
+// people actually check often. Settings is just one ordinary item here, kept
+// last because it is rarely adjusted.
+function hasRoute(name: string): boolean {
+  return router.hasRoute(name);
+}
+
+// Routes that belong to the feature menu — landing on any of them keeps the
+// menu open. Settings is included as a regular feature page.
 const FEATURE_ROUTE_NAMES = new Set([
   "hermes.history", "hermes.historySession",
   "hermes.groupChat", "hermes.groupChatRoom",
@@ -47,85 +55,49 @@ const FEATURE_ROUTE_NAMES = new Set([
   "hermes.memory", "hermes.logs", "hermes.usage", "hermes.performance",
   "hermes.skillsUsage", "hermes.codingAgents", "hermes.terminal",
   "hermes.files", "hermes.profiles", "hermes.pairing", "hermes.versionPreview",
+  "hermes.settings",
 ]);
-const inSettingsMode = computed(() => {
+// Pinned when the user opens the menu from the chat shortcut without yet
+// navigating away; route membership keeps it open once they pick a page.
+const featureMenuPinned = ref(false);
+const inFeatureMenu = computed(() => {
   const name = typeof route.name === "string" ? route.name : "";
-  return name === "hermes.settings" || FEATURE_ROUTE_NAMES.has(name);
+  return featureMenuPinned.value || FEATURE_ROUTE_NAMES.has(name);
 });
 
-// Settings tabs mirrored from SettingsView so the sidebar can drive them.
-type SettingsTab = { key: string; superAdmin?: boolean };
-const settingsTabs: SettingsTab[] = [
-  { key: "account" },
-  { key: "users", superAdmin: true },
-  { key: "display" },
-  { key: "agent" },
-  { key: "memory" },
-  { key: "compression" },
-  { key: "session" },
-  { key: "privacy" },
-  { key: "models" },
-  { key: "voice" },
-];
-const visibleSettingsTabs = computed(() =>
-  settingsTabs.filter(tab => !tab.superAdmin || isSuperAdmin.value),
-);
-
-type FeatureLink = { name: string; labelKey: string; superAdmin?: boolean };
-const featureLinks: FeatureLink[] = [
-  { name: "hermes.history", labelKey: "sidebar.history" },
-  { name: "hermes.groupChat", labelKey: "sidebar.groupChat" },
-  { name: "hermes.jobs", labelKey: "sidebar.jobs" },
-  { name: "hermes.kanban", labelKey: "sidebar.kanban" },
-  { name: "hermes.channels", labelKey: "sidebar.channels" },
-  { name: "hermes.mcp", labelKey: "sidebar.mcp", superAdmin: true },
-  { name: "hermes.memory", labelKey: "sidebar.memory" },
-  { name: "hermes.logs", labelKey: "sidebar.logs" },
-  { name: "hermes.usage", labelKey: "sidebar.usage" },
-  { name: "hermes.performance", labelKey: "sidebar.performance", superAdmin: true },
-  { name: "hermes.skillsUsage", labelKey: "sidebar.skillsUsage" },
-  { name: "hermes.codingAgents", labelKey: "sidebar.codingAgents" },
-  { name: "hermes.terminal", labelKey: "sidebar.terminal" },
-  { name: "hermes.files", labelKey: "sidebar.files" },
-  { name: "hermes.profiles", labelKey: "sidebar.profiles", superAdmin: true },
-  { name: "hermes.pairing", labelKey: "sidebar.pairing", superAdmin: true },
-];
-const visibleFeatures = computed(() =>
-  featureLinks.filter(link => router.hasRoute(link.name) && (!link.superAdmin || isSuperAdmin.value)),
-);
-
-const activeSettingsTab = computed(() => {
-  const tab = route.query.tab;
-  return typeof tab === "string" && tab ? tab : "account";
-});
-function isSettingsTabActive(key: string) {
-  return route.name === "hermes.settings" && activeSettingsTab.value === key;
-}
-function openSettingsTab(key: string) {
-  router.push({ name: "hermes.settings", query: key === "account" ? {} : { tab: key } });
+function openFeatureMenu() {
+  featureMenuPinned.value = true;
 }
 function backToChat() {
+  featureMenuPinned.value = false;
   router.push({ name: "hermes.chat" });
 }
 
-// Collapsible groups in settings mode so the (otherwise long) list of
-// settings + feature entries fits on one screen without relying on scroll —
-// important on trackpads / laptops without a scroll wheel. "Settings" opens by
-// default since that is what entering Settings is usually for.
-const settingsGroupOpen = ref(true);
-const featuresGroupOpen = ref(false);
-
-// Auto-open the group that matches the current page so the active item is
-// visible (e.g. landing directly on a feature route opens the Features group).
+// Returning to a conversation always drops the pinned menu.
 watch(
   () => route.name,
   (name) => {
-    const n = typeof name === "string" ? name : "";
-    if (FEATURE_ROUTE_NAMES.has(n)) featuresGroupOpen.value = true;
-    else if (n === "hermes.settings") settingsGroupOpen.value = true;
+    if (name === "hermes.chat" || name === "hermes.session") {
+      featureMenuPinned.value = false;
+    }
   },
-  { immediate: true },
 );
+
+const isVersionPreview = import.meta.env.VITE_HERMES_PREVIEW === '1';
+
+// Restore the original collapsible groups (with persistence + short labels).
+const { record: collapsedGroups, persist: persistCollapsedGroups } = usePersistentRecord('hermes.sidebar.collapsedGroups');
+type SidebarGroupKey = "Conversation" | "Agent" | "Monitoring" | "Tools" | "System";
+function groupLabel(key: SidebarGroupKey) {
+  return t(`sidebar.group${key}${appStore.sidebarCollapsed ? "Short" : ""}`);
+}
+function toggleGroup(key: string) {
+  collapsedGroups[key] = !collapsedGroups[key];
+  persistCollapsedGroups();
+}
+function isGroupCollapsed(key: string) {
+  return !!collapsedGroups[key];
+}
 
 async function handleUpdate() {
   const ok = await appStore.doUpdate();
@@ -169,7 +141,7 @@ function openChangelog() {
     </button>
 
     <!-- ── Chat mode: session list + common entries ── -->
-    <template v-if="!inSettingsMode">
+    <template v-if="!inFeatureMenu">
       <SessionListPanel class="sidebar-session-panel" />
       <nav class="sidebar-quicknav">
         <RouteLinkItem class="nav-item" :class="{ 'needs-model': noModelConfigured }" :to="{ name: 'hermes.models' }" :active="selectedKey === 'hermes.models'" :title="noModelConfigured ? t('sidebar.modelsNotConfigured') : undefined">
@@ -195,17 +167,19 @@ function openChangelog() {
           </svg>
           <span>{{ t("sidebar.plugins") }}</span>
         </RouteLinkItem>
-        <RouteLinkItem class="nav-item" :to="{ name: 'hermes.settings' }" :active="isNavActive('hermes.settings')">
+        <button class="nav-item" :class="{ active: inFeatureMenu }" @click="openFeatureMenu">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
           </svg>
-          <span>{{ t("sidebar.settings") }}</span>
-        </RouteLinkItem>
+          <span>{{ t("sidebar.features") }}</span>
+        </button>
       </nav>
     </template>
 
-    <!-- ── Settings mode: configuration navigator ── -->
+    <!-- ── Feature menu: the original grouped navigation ── -->
     <template v-else>
       <button class="sidebar-back" @click="backToChat">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -214,46 +188,169 @@ function openChangelog() {
         </svg>
         <span>{{ t("settings.backToChat") }}</span>
       </button>
-      <nav class="sidebar-nav settings-nav">
-        <button class="nav-section-toggle" @click="settingsGroupOpen = !settingsGroupOpen">
-          <span>{{ t("settings.title") }}</span>
-          <svg class="nav-section-arrow" :class="{ collapsed: !settingsGroupOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-        <div v-show="settingsGroupOpen" class="nav-section-items">
-          <button
-            v-for="tab in visibleSettingsTabs"
-            :key="tab.key"
-            class="nav-item"
-            :class="{ active: isSettingsTabActive(tab.key) }"
-            @click="openSettingsTab(tab.key)"
-          >
-            <span>{{ t(`settings.tabs.${tab.key}`) }}</span>
-          </button>
+      <nav class="sidebar-nav feature-nav">
+        <!-- Conversation -->
+        <div class="nav-group">
+          <div class="nav-group-label" @click="toggleGroup('conversation')">
+            <span>{{ groupLabel("Conversation") }}</span>
+            <svg class="nav-group-arrow" :class="{ collapsed: isGroupCollapsed('conversation') }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="!isGroupCollapsed('conversation')" class="nav-group-items">
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.history' }" :active="isNavActive('hermes.history', 'hermes.historySession')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>{{ t("sidebar.history") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.groupChat' }" :active="isNavActive('hermes.groupChat', 'hermes.groupChatRoom')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>{{ t("sidebar.groupChat") }}<span class="beta-tag">(beta)</span></span>
+            </RouteLinkItem>
+          </div>
         </div>
-        <button class="nav-section-toggle" @click="featuresGroupOpen = !featuresGroupOpen">
-          <span>{{ t("settings.tabs.features") }}</span>
-          <svg class="nav-section-arrow" :class="{ collapsed: !featuresGroupOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-        <div v-show="featuresGroupOpen" class="nav-section-items">
-          <RouteLinkItem
-            v-for="link in visibleFeatures"
-            :key="link.name"
-            class="nav-item"
-            :to="{ name: link.name }"
-            :active="selectedKey === link.name"
-          >
-            <span>{{ t(link.labelKey) }}</span>
-          </RouteLinkItem>
+
+        <!-- Agent -->
+        <div class="nav-group">
+          <div class="nav-group-label" @click="toggleGroup('agent')">
+            <span>{{ groupLabel("Agent") }}</span>
+            <svg class="nav-group-arrow" :class="{ collapsed: isGroupCollapsed('agent') }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="!isGroupCollapsed('agent')" class="nav-group-items">
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.jobs' }" :active="selectedKey === 'hermes.jobs'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span>{{ t("sidebar.jobs") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.kanban' }" :active="selectedKey === 'hermes.kanban'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="5" height="18" rx="1" /><rect x="10" y="3" width="5" height="12" rx="1" /><rect x="17" y="3" width="5" height="18" rx="1" />
+              </svg>
+              <span>{{ t("sidebar.kanban") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.channels' }" :active="selectedKey === 'hermes.channels'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+              <span>{{ t("sidebar.channels") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.mcp' }" :active="selectedKey === 'hermes.mcp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 7v13" /><rect x="4" y="7" width="16" height="7" rx="2" />
+              </svg>
+              <span>{{ t("sidebar.mcp") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.memory' }" :active="selectedKey === 'hermes.memory'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18h6" /><path d="M10 22h4" /><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+              </svg>
+              <span>{{ t("sidebar.memory") }}</span>
+            </RouteLinkItem>
+          </div>
+        </div>
+
+        <!-- Monitoring -->
+        <div class="nav-group">
+          <div class="nav-group-label" @click="toggleGroup('monitoring')">
+            <span>{{ groupLabel("Monitoring") }}</span>
+            <svg class="nav-group-arrow" :class="{ collapsed: isGroupCollapsed('monitoring') }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="!isGroupCollapsed('monitoring')" class="nav-group-items">
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.logs' }" :active="selectedKey === 'hermes.logs'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+              </svg>
+              <span>{{ t("sidebar.logs") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.usage' }" :active="selectedKey === 'hermes.usage'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="7" width="4" height="14" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" />
+              </svg>
+              <span>{{ t("sidebar.usage") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem v-if="isSuperAdmin" class="nav-item" :to="{ name: 'hermes.performance' }" :active="selectedKey === 'hermes.performance'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              <span>{{ t("sidebar.performance") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.skillsUsage' }" :active="selectedKey === 'hermes.skillsUsage'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.21 15.89A10 10 0 1 1 8.11 2.79" /><path d="M22 12A10 10 0 0 0 12 2v10z" />
+              </svg>
+              <span>{{ t("sidebar.skillsUsage") }}</span>
+            </RouteLinkItem>
+          </div>
+        </div>
+
+        <!-- Tools -->
+        <div class="nav-group">
+          <div class="nav-group-label" @click="toggleGroup('tools')">
+            <span>{{ groupLabel("Tools") }}</span>
+            <svg class="nav-group-arrow" :class="{ collapsed: isGroupCollapsed('tools') }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="!isGroupCollapsed('tools')" class="nav-group-items">
+            <RouteLinkItem v-if="hasRoute('hermes.codingAgents')" class="nav-item" :to="{ name: 'hermes.codingAgents' }" :active="selectedKey === 'hermes.codingAgents'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /><line x1="12" y1="20" x2="14" y2="4" />
+              </svg>
+              <span>{{ t("sidebar.codingAgents") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem v-if="hasRoute('hermes.versionPreview') && isSuperAdmin && !isVersionPreview" class="nav-item" :to="{ name: 'hermes.versionPreview' }" :active="selectedKey === 'hermes.versionPreview'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="7.5 4.21 12 6.81 16.5 4.21" /><polyline points="7.5 19.79 7.5 14.6 3 12" /><polyline points="21 12 16.5 14.6 16.5 19.79" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+              <span>{{ t("sidebar.versionPreview") }}</span>
+            </RouteLinkItem>
+          </div>
+        </div>
+
+        <!-- System (Settings lives here as an ordinary, rarely-used item) -->
+        <div class="nav-group">
+          <div class="nav-group-label" @click="toggleGroup('system')">
+            <span>{{ groupLabel("System") }}</span>
+            <svg class="nav-group-arrow" :class="{ collapsed: isGroupCollapsed('system') }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="!isGroupCollapsed('system')" class="nav-group-items">
+            <RouteLinkItem v-if="isSuperAdmin" class="nav-item" :to="{ name: 'hermes.profiles' }" :active="selectedKey === 'hermes.profiles'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+              </svg>
+              <span>{{ t("sidebar.profiles") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem v-if="isSuperAdmin" class="nav-item" :to="{ name: 'hermes.pairing' }" :active="selectedKey === 'hermes.pairing'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3" /><path d="M21 14v.01" /><path d="M21 21v.01" /><path d="M17 21h.01" /><path d="M21 17.5v.01" />
+              </svg>
+              <span>{{ t("sidebar.pairing") }}</span>
+            </RouteLinkItem>
+            <RouteLinkItem class="nav-item" :to="{ name: 'hermes.settings' }" :active="selectedKey === 'hermes.settings'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span>{{ t("sidebar.settings") }}</span>
+            </RouteLinkItem>
+          </div>
         </div>
       </nav>
     </template>
 
     <ProfileSelector />
-    <ModelSelector v-if="!inSettingsMode" />
+    <ModelSelector v-if="!inFeatureMenu" />
 
     <div class="sidebar-footer">
       <button class="nav-item logout-item" @click="handleLogout">
@@ -432,10 +529,11 @@ function openChangelog() {
   }
 }
 
-.settings-nav {
+// Feature menu uses the original grouped nav; show a thin scrollbar (overrides
+// the hidden-scrollbar default) so the list is reachable on trackpads /
+// devices without a scroll wheel.
+.feature-nav {
   padding-top: 8px;
-  // Show a thin scrollbar here (overrides the hidden-scrollbar default) so the
-  // list is reachable on trackpads / devices without a scroll wheel.
   scrollbar-width: thin;
 
   &::-webkit-scrollbar {
@@ -446,44 +544,6 @@ function openChangelog() {
     background: var(--border-color);
     border-radius: 3px;
   }
-}
-
-.nav-section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 10px 12px 6px;
-  border: none;
-  background: none;
-  appearance: none;
-  font-size: 10px;
-  font-weight: 600;
-  color: $sidebar-text-muted;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  cursor: pointer;
-  user-select: none;
-  transition: color $transition-fast;
-
-  &:hover {
-    color: $sidebar-text;
-  }
-}
-
-.nav-section-arrow {
-  flex-shrink: 0;
-  transition: transform $transition-fast;
-
-  &.collapsed {
-    transform: rotate(-90deg);
-  }
-}
-
-.nav-section-items {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 :deep(.profile-selector) {
