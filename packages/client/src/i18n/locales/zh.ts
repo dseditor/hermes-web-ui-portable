@@ -182,6 +182,7 @@ export default {
     chat: '对话',
     sessions: '工作阶段',
     features: '功能',
+    account: '账号',
     search: '搜索',
     apiRelay: '中转站',
     history: '历史',

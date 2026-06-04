@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { NButton, NModal, useMessage } from "naive-ui";
+import { NButton, useMessage } from "naive-ui";
 import { useAppStore } from "@/stores/hermes/app";
 import ModelSelector from "./ModelSelector.vue";
 import ProfileSelector from "./ProfileSelector.vue";
@@ -11,7 +11,6 @@ import LanguageSwitch from "./LanguageSwitch.vue";
 import ThemeSwitch from "./ThemeSwitch.vue";
 import RouteLinkItem from '@/components/common/RouteLinkItem.vue'
 import { usePersistentRecord } from '@/composables/usePersistentRecord'
-import { changelog } from "@/data/changelog";
 import { isStoredSuperAdmin } from "@/api/client";
 
 const { t } = useI18n();
@@ -124,12 +123,9 @@ function handleLogout() {
   router.replace({ name: 'login' });
 }
 
-// Changelog
-const showChangelog = ref(false);
-
-function openChangelog() {
-  showChangelog.value = true;
-}
+// Bottom account/status panel is collapsed by default to give the session
+// list more room; the slim footer bar (account toggle + theme switch) stays.
+const footerExpanded = ref(false);
 </script>
 
 <template>
@@ -356,10 +352,11 @@ function openChangelog() {
       </nav>
     </template>
 
-    <ProfileSelector />
-    <ModelSelector v-if="!inFeatureMenu" />
-
-    <div class="sidebar-footer">
+    <!-- Account / status panel — collapsed by default to give the session
+         list more room. Toggled from the slim footer bar below. -->
+    <div v-show="footerExpanded" class="sidebar-account-panel">
+      <ProfileSelector />
+      <ModelSelector v-if="!inFeatureMenu" />
       <button class="nav-item logout-item" @click="handleLogout">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -385,18 +382,6 @@ function openChangelog() {
         </div>
         <LanguageSwitch />
       </div>
-      <div class="version-info">
-        <div class="version-links">
-          <a class="github-link" href="https://github.com/EKKOLearnAI/hermes-web-ui" target="_blank" rel="noopener noreferrer" title="GitHub">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          </a>
-          <a class="website-link" href="https://ekkolearnai.com/" target="_blank" rel="noopener noreferrer" title="Website">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </a>
-        </div>
-        <span class="version-text" @click="openChangelog">Web UI v{{ appStore.serverVersion || "0.1.0" }}</span>
-        <ThemeSwitch />
-      </div>
       <NButton v-if="appStore.clientOutdated" type="warning" size="tiny" block class="update-btn" @click="handleReloadClient">
         {{ t('sidebar.reloadClientVersion', { version: appStore.serverVersion }) }}
       </NButton>
@@ -405,20 +390,20 @@ function openChangelog() {
       </NButton>
     </div>
 
-    <!-- Changelog modal -->
-    <NModal v-model:show="showChangelog" preset="dialog" :title="t('sidebar.changelog')" style="width: 520px;">
-      <div class="changelog-list">
-        <div v-for="entry in changelog" :key="entry.version" class="changelog-version-block">
-          <div class="changelog-version-header">
-            <span class="changelog-version-tag">v{{ entry.version }}</span>
-            <span class="changelog-date">{{ entry.date }}</span>
-          </div>
-          <ul class="changelog-changes">
-            <li v-for="(change, idx) in entry.changes" :key="idx">{{ t(change) }}</li>
-          </ul>
-        </div>
-      </div>
-    </NModal>
+    <!-- Slim, always-visible footer bar: account toggle + theme switch only. -->
+    <div class="sidebar-footer-bar">
+      <button class="account-toggle" :class="{ active: footerExpanded }" @click="footerExpanded = !footerExpanded" :title="t('sidebar.account')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        <span>{{ t("sidebar.account") }}</span>
+        <svg class="account-toggle-arrow" :class="{ expanded: footerExpanded }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+      <ThemeSwitch />
+    </div>
   </aside>
 </template>
 
@@ -648,6 +633,67 @@ function openChangelog() {
 .sidebar-footer {
   padding-top: 8px;
   border-top: 1px solid $sidebar-border;
+}
+
+// Collapsible account/status panel (expands above the slim footer bar).
+.sidebar-account-panel {
+  padding-top: 8px;
+  border-top: 1px solid $sidebar-border;
+}
+
+// Slim, always-visible footer bar: account toggle on the left, theme switch
+// on the right. Nothing else (version / links removed).
+.sidebar-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 4px 0;
+  margin-top: 6px;
+  border-top: 1px solid $sidebar-border;
+
+  // Keep only the light/dark (moon) toggle — hide the comic/ink style button.
+  :deep(.theme-switch-container button:first-child) {
+    display: none;
+  }
+}
+
+.account-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 8px;
+  border: none;
+  background: none;
+  appearance: none;
+  color: $sidebar-text-muted;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  span {
+    flex: 1;
+    text-align: left;
+  }
+
+  &:hover,
+  &.active {
+    color: $sidebar-text;
+    background: $sidebar-hover-bg;
+  }
+}
+
+.account-toggle-arrow {
+  flex-shrink: 0;
+  transition: transform $transition-fast;
+
+  &:not(.expanded) {
+    transform: rotate(180deg);
+  }
 }
 
 .logout-item {

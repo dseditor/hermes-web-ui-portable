@@ -190,6 +190,7 @@ export default {
     chat: 'Chat',
     sessions: 'Sessions',
     features: 'Features',
+    account: 'Account',
     search: 'Search',
     apiRelay: 'API Relay',
     history: 'History',

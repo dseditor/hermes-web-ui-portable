@@ -32,6 +32,7 @@ const emit = defineEmits<{
   contextmenu: [event: MouseEvent]
   delete: []
   'toggle-select': []
+  'toggle-pin': []
 }>()
 
 const { t } = useI18n()
@@ -151,6 +152,19 @@ onUnmounted(() => {
         <span class="session-item-profile-name">{{ profileName }}</span>
       </span>
     </div>
+    <button
+      v-if="!selectable"
+      class="session-item-pin-btn"
+      :class="{ pinned }"
+      :title="pinned ? t('chat.unpin') : t('chat.pin')"
+      @click.stop.prevent="emit('toggle-pin')"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" :fill="pinned ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 17v5" />
+        <path d="M5 8l14 0" />
+        <path d="M8 3l8 0 0 5 3 5-14 0 3-5z" />
+      </svg>
+    </button>
     <NPopconfirm v-if="canDelete && !selectable" @positive-click="emit('delete')">
       <template #trigger>
         <button class="session-item-delete" @click.stop.prevent>

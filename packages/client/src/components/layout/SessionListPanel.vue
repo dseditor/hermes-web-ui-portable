@@ -47,6 +47,10 @@ function deleteSession(id: string) {
   chatStore.deleteSession(id)
   message.success(t('chat.sessionDeleted'))
 }
+
+function togglePin(id: string) {
+  prefs.togglePinned(id)
+}
 </script>
 
 <template>
@@ -86,6 +90,7 @@ function deleteSession(id: string) {
           :to="sessionHref(s.id)"
           @select="openSession(s.id)"
           @delete="deleteSession(s.id)"
+          @toggle-pin="togglePin(s.id)"
         />
       </template>
 
@@ -184,13 +189,37 @@ function deleteSession(id: string) {
   &:hover {
     background: $sidebar-hover-bg;
 
-    .session-item-delete {
+    .session-item-delete,
+    .session-item-pin-btn {
       opacity: 1;
     }
   }
 
   &.active {
     background: $sidebar-active-bg;
+  }
+}
+
+:deep(.session-item-pin-btn) {
+  flex-shrink: 0;
+  opacity: 0;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: $sidebar-text-muted;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $accent-primary;
+    background: rgba(var(--accent-primary-rgb), 0.14);
+  }
+
+  // Pinned sessions keep the pin lit so the state is always visible.
+  &.pinned {
+    opacity: 1;
+    color: $accent-primary;
   }
 }
 
