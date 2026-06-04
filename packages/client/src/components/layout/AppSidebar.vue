@@ -6,16 +6,19 @@ import { NButton, NModal, useMessage } from "naive-ui";
 import { useAppStore } from "@/stores/hermes/app";
 import ModelSelector from "./ModelSelector.vue";
 import ProfileSelector from "./ProfileSelector.vue";
+import SessionListPanel from "./SessionListPanel.vue";
 import LanguageSwitch from "./LanguageSwitch.vue";
 import ThemeSwitch from "./ThemeSwitch.vue";
 import RouteLinkItem from '@/components/common/RouteLinkItem.vue'
 import { changelog } from "@/data/changelog";
+import { isStoredSuperAdmin } from "@/api/client";
 
 const { t } = useI18n();
 const message = useMessage();
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
+const isSuperAdmin = computed(() => isStoredSuperAdmin());
 const selectedKey = computed(() => {
   if (route.name === "hermes.session") return "hermes.chat";
   if (route.name === "hermes.historySession") return "hermes.history";
@@ -31,6 +34,79 @@ function isNavActive(...names: string[]) {
   return names.includes(selectedKey.value);
 }
 const logoPath = '/logo.png';
+
+// ─── Context-aware sidebar: chat mode vs settings mode ──────────────
+// In settings mode the sidebar turns into a configuration navigator (the
+// settings tabs + the relocated feature pages), with a back button to return
+// to the conversation session list. Every relocated feature route counts as
+// "settings mode" so the navigator stays put while configuring.
+const FEATURE_ROUTE_NAMES = new Set([
+  "hermes.history", "hermes.historySession",
+  "hermes.groupChat", "hermes.groupChatRoom",
+  "hermes.jobs", "hermes.kanban", "hermes.channels", "hermes.mcp",
+  "hermes.memory", "hermes.logs", "hermes.usage", "hermes.performance",
+  "hermes.skillsUsage", "hermes.codingAgents", "hermes.terminal",
+  "hermes.files", "hermes.profiles", "hermes.pairing", "hermes.versionPreview",
+]);
+const inSettingsMode = computed(() => {
+  const name = typeof route.name === "string" ? route.name : "";
+  return name === "hermes.settings" || FEATURE_ROUTE_NAMES.has(name);
+});
+
+// Settings tabs mirrored from SettingsView so the sidebar can drive them.
+type SettingsTab = { key: string; superAdmin?: boolean };
+const settingsTabs: SettingsTab[] = [
+  { key: "account" },
+  { key: "users", superAdmin: true },
+  { key: "display" },
+  { key: "agent" },
+  { key: "memory" },
+  { key: "compression" },
+  { key: "session" },
+  { key: "privacy" },
+  { key: "models" },
+  { key: "voice" },
+];
+const visibleSettingsTabs = computed(() =>
+  settingsTabs.filter(tab => !tab.superAdmin || isSuperAdmin.value),
+);
+
+type FeatureLink = { name: string; labelKey: string; superAdmin?: boolean };
+const featureLinks: FeatureLink[] = [
+  { name: "hermes.history", labelKey: "sidebar.history" },
+  { name: "hermes.groupChat", labelKey: "sidebar.groupChat" },
+  { name: "hermes.jobs", labelKey: "sidebar.jobs" },
+  { name: "hermes.kanban", labelKey: "sidebar.kanban" },
+  { name: "hermes.channels", labelKey: "sidebar.channels" },
+  { name: "hermes.mcp", labelKey: "sidebar.mcp", superAdmin: true },
+  { name: "hermes.memory", labelKey: "sidebar.memory" },
+  { name: "hermes.logs", labelKey: "sidebar.logs" },
+  { name: "hermes.usage", labelKey: "sidebar.usage" },
+  { name: "hermes.performance", labelKey: "sidebar.performance", superAdmin: true },
+  { name: "hermes.skillsUsage", labelKey: "sidebar.skillsUsage" },
+  { name: "hermes.codingAgents", labelKey: "sidebar.codingAgents" },
+  { name: "hermes.terminal", labelKey: "sidebar.terminal" },
+  { name: "hermes.files", labelKey: "sidebar.files" },
+  { name: "hermes.profiles", labelKey: "sidebar.profiles", superAdmin: true },
+  { name: "hermes.pairing", labelKey: "sidebar.pairing", superAdmin: true },
+];
+const visibleFeatures = computed(() =>
+  featureLinks.filter(link => router.hasRoute(link.name) && (!link.superAdmin || isSuperAdmin.value)),
+);
+
+const activeSettingsTab = computed(() => {
+  const tab = route.query.tab;
+  return typeof tab === "string" && tab ? tab : "account";
+});
+function isSettingsTabActive(key: string) {
+  return route.name === "hermes.settings" && activeSettingsTab.value === key;
+}
+function openSettingsTab(key: string) {
+  router.push({ name: "hermes.settings", query: key === "account" ? {} : { tab: key } });
+}
+function backToChat() {
+  router.push({ name: "hermes.chat" });
+}
 
 async function handleUpdate() {
   const ok = await appStore.doUpdate();
@@ -73,33 +149,23 @@ function openChangelog() {
       </svg>
     </button>
 
-    <nav class="sidebar-nav">
-      <div class="nav-group-items">
-        <RouteLinkItem class="nav-item" :to="{ name: 'hermes.chat' }" :active="isNavActive('hermes.chat', 'hermes.session')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <span>{{ t("sidebar.sessions") }}</span>
-        </RouteLinkItem>
+    <!-- ── Chat mode: session list + common entries ── -->
+    <template v-if="!inSettingsMode">
+      <SessionListPanel class="sidebar-session-panel" />
+      <nav class="sidebar-quicknav">
         <RouteLinkItem class="nav-item" :class="{ 'needs-model': noModelConfigured }" :to="{ name: 'hermes.models' }" :active="selectedKey === 'hermes.models'" :title="noModelConfigured ? t('sidebar.modelsNotConfigured') : undefined">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v4" />
-            <path d="M12 19v4" />
-            <path d="M1 12h4" />
-            <path d="M19 12h4" />
-            <path d="M4.22 4.22l2.83 2.83" />
-            <path d="M16.95 16.95l2.83 2.83" />
-            <path d="M4.22 19.78l2.83-2.83" />
-            <path d="M16.95 7.05l2.83-2.83" />
+            <path d="M12 1v4" /><path d="M12 19v4" /><path d="M1 12h4" /><path d="M19 12h4" />
+            <path d="M4.22 4.22l2.83 2.83" /><path d="M16.95 16.95l2.83 2.83" />
+            <path d="M4.22 19.78l2.83-2.83" /><path d="M16.95 7.05l2.83-2.83" />
           </svg>
           <span>{{ t("sidebar.models") }}</span>
         </RouteLinkItem>
         <RouteLinkItem class="nav-item" :to="{ name: 'hermes.skills' }" :active="selectedKey === 'hermes.skills'">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 2 7 12 12 22 7 12 2" />
-            <polyline points="2 17 12 22 22 17" />
-            <polyline points="2 12 12 17 22 12" />
+            <polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" />
           </svg>
           <span>{{ t("sidebar.skills") }}</span>
         </RouteLinkItem>
@@ -117,11 +183,44 @@ function openChangelog() {
           </svg>
           <span>{{ t("sidebar.settings") }}</span>
         </RouteLinkItem>
-      </div>
-    </nav>
+      </nav>
+    </template>
+
+    <!-- ── Settings mode: configuration navigator ── -->
+    <template v-else>
+      <button class="sidebar-back" @click="backToChat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>{{ t("settings.backToChat") }}</span>
+      </button>
+      <nav class="sidebar-nav settings-nav">
+        <div class="nav-section-label">{{ t("settings.title") }}</div>
+        <button
+          v-for="tab in visibleSettingsTabs"
+          :key="tab.key"
+          class="nav-item"
+          :class="{ active: isSettingsTabActive(tab.key) }"
+          @click="openSettingsTab(tab.key)"
+        >
+          <span>{{ t(`settings.tabs.${tab.key}`) }}</span>
+        </button>
+        <div class="nav-section-label">{{ t("settings.tabs.features") }}</div>
+        <RouteLinkItem
+          v-for="link in visibleFeatures"
+          :key="link.name"
+          class="nav-item"
+          :to="{ name: link.name }"
+          :active="selectedKey === link.name"
+        >
+          <span>{{ t(link.labelKey) }}</span>
+        </RouteLinkItem>
+      </nav>
+    </template>
 
     <ProfileSelector />
-    <ModelSelector />
+    <ModelSelector v-if="!inSettingsMode" />
 
     <div class="sidebar-footer">
       <button class="nav-item logout-item" @click="handleLogout">
@@ -255,6 +354,65 @@ function openChangelog() {
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+// Session list takes the flexible space in chat mode.
+.sidebar-session-panel {
+  flex: 1;
+  min-height: 0;
+  padding-top: 12px;
+}
+
+// Common entries pinned below the session list (models / skills / plugins / settings).
+.sidebar-quicknav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  margin-top: 4px;
+  border-top: 1px solid $sidebar-border;
+  flex-shrink: 0;
+}
+
+// Settings-mode back button.
+.sidebar-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: none;
+  background: $sidebar-hover-bg;
+  color: $sidebar-text;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background: $sidebar-active-bg;
+    color: $sidebar-active-text;
+  }
+}
+
+.settings-nav {
+  padding-top: 8px;
+}
+
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: $sidebar-text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 12px 12px 4px;
+
+  &:first-child {
+    padding-top: 4px;
   }
 }
 

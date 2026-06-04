@@ -17,9 +17,14 @@ const props = withDefaults(defineProps<{
   selectable?: boolean
   selected?: boolean
   showProfile?: boolean
+  // Minimal mode (used by the global sidebar session list): show only a clean,
+  // prominent title and hide model / time / profile meta. Clicking the session
+  // opens it, where the full detail is shown.
+  minimal?: boolean
   to?: string
 }>(), {
   showProfile: true,
+  minimal: false,
 })
 
 const emit = defineEmits<{
@@ -102,7 +107,7 @@ onUnmounted(() => {
   <component
     :is="selectable || !to ? 'button' : 'a'"
     class="session-item"
-    :class="{ active, 'batch-mode': selectable, 'missing-models': profileModelsMissing }"
+    :class="{ active, minimal, 'batch-mode': selectable, 'missing-models': profileModelsMissing }"
     :aria-current="active ? 'page' : undefined"
     :href="!selectable ? to : undefined"
     :type="selectable || !to ? 'button' : undefined"
@@ -137,11 +142,11 @@ onUnmounted(() => {
           {{ t('chat.profileMissingModelsTip', { profile: profileName }) }}
         </NTooltip>
       </span>
-      <span class="session-item-meta">
+      <span v-if="!minimal" class="session-item-meta">
         <span v-if="sessionModelName" class="session-item-model" :title="session.model">{{ sessionModelName }}</span>
         <span class="session-item-time">{{ formatTimestampMs(session.createdAt) }}</span>
       </span>
-      <span v-if="props.showProfile" class="session-item-profile">
+      <span v-if="props.showProfile && !minimal" class="session-item-profile">
         <ProfileAvatar class="session-item-profile-avatar" :name="profileName" :avatar="profileAvatar" :size="16" />
         <span class="session-item-profile-name">{{ profileName }}</span>
       </span>

@@ -48,16 +48,10 @@ const selectedSessionKeys = ref<Set<string>>(new Set());
 const showBatchDeleteConfirm = ref(false);
 const isBatchDeleting = ref(false);
 
-// Initialize synchronously from the media query so first paint is correct.
-// On narrow viewports the session list is an absolute-positioned overlay
-// (z-index 10) on top of the chat area; if we default to `true`, onMounted
-// only flips it to `false` AFTER the first render, causing a visible flash
-// where the session list covers the chat content ("auto-fixes after a
-// moment" — that was the race).
-const showSessions = ref(
-  typeof window === "undefined" ||
-    !window.matchMedia("(max-width: 768px)").matches,
-);
+// The global sidebar now owns the day-to-day session list, so this in-page
+// panel starts collapsed. It still toggles open from the header button to
+// expose advanced management (batch delete, export, set workspace, etc.).
+const showSessions = ref(false);
 let mobileQuery: MediaQueryList | null = null;
 const isMobile = ref(false);
 
