@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { NButton, NModal, useMessage } from "naive-ui";
@@ -108,6 +108,25 @@ function backToChat() {
   router.push({ name: "hermes.chat" });
 }
 
+// Collapsible groups in settings mode so the (otherwise long) list of
+// settings + feature entries fits on one screen without relying on scroll —
+// important on trackpads / laptops without a scroll wheel. "Settings" opens by
+// default since that is what entering Settings is usually for.
+const settingsGroupOpen = ref(true);
+const featuresGroupOpen = ref(false);
+
+// Auto-open the group that matches the current page so the active item is
+// visible (e.g. landing directly on a feature route opens the Features group).
+watch(
+  () => route.name,
+  (name) => {
+    const n = typeof name === "string" ? name : "";
+    if (FEATURE_ROUTE_NAMES.has(n)) featuresGroupOpen.value = true;
+    else if (n === "hermes.settings") settingsGroupOpen.value = true;
+  },
+  { immediate: true },
+);
+
 async function handleUpdate() {
   const ok = await appStore.doUpdate();
   if (ok) {
@@ -196,26 +215,40 @@ function openChangelog() {
         <span>{{ t("settings.backToChat") }}</span>
       </button>
       <nav class="sidebar-nav settings-nav">
-        <div class="nav-section-label">{{ t("settings.title") }}</div>
-        <button
-          v-for="tab in visibleSettingsTabs"
-          :key="tab.key"
-          class="nav-item"
-          :class="{ active: isSettingsTabActive(tab.key) }"
-          @click="openSettingsTab(tab.key)"
-        >
-          <span>{{ t(`settings.tabs.${tab.key}`) }}</span>
+        <button class="nav-section-toggle" @click="settingsGroupOpen = !settingsGroupOpen">
+          <span>{{ t("settings.title") }}</span>
+          <svg class="nav-section-arrow" :class="{ collapsed: !settingsGroupOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </button>
-        <div class="nav-section-label">{{ t("settings.tabs.features") }}</div>
-        <RouteLinkItem
-          v-for="link in visibleFeatures"
-          :key="link.name"
-          class="nav-item"
-          :to="{ name: link.name }"
-          :active="selectedKey === link.name"
-        >
-          <span>{{ t(link.labelKey) }}</span>
-        </RouteLinkItem>
+        <div v-show="settingsGroupOpen" class="nav-section-items">
+          <button
+            v-for="tab in visibleSettingsTabs"
+            :key="tab.key"
+            class="nav-item"
+            :class="{ active: isSettingsTabActive(tab.key) }"
+            @click="openSettingsTab(tab.key)"
+          >
+            <span>{{ t(`settings.tabs.${tab.key}`) }}</span>
+          </button>
+        </div>
+        <button class="nav-section-toggle" @click="featuresGroupOpen = !featuresGroupOpen">
+          <span>{{ t("settings.tabs.features") }}</span>
+          <svg class="nav-section-arrow" :class="{ collapsed: !featuresGroupOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <div v-show="featuresGroupOpen" class="nav-section-items">
+          <RouteLinkItem
+            v-for="link in visibleFeatures"
+            :key="link.name"
+            class="nav-item"
+            :to="{ name: link.name }"
+            :active="selectedKey === link.name"
+          >
+            <span>{{ t(link.labelKey) }}</span>
+          </RouteLinkItem>
+        </div>
       </nav>
     </template>
 
@@ -401,19 +434,56 @@ function openChangelog() {
 
 .settings-nav {
   padding-top: 8px;
+  // Show a thin scrollbar here (overrides the hidden-scrollbar default) so the
+  // list is reachable on trackpads / devices without a scroll wheel.
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+  }
 }
 
-.nav-section-label {
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px 6px;
+  border: none;
+  background: none;
+  appearance: none;
   font-size: 10px;
   font-weight: 600;
   color: $sidebar-text-muted;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  padding: 12px 12px 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: color $transition-fast;
 
-  &:first-child {
-    padding-top: 4px;
+  &:hover {
+    color: $sidebar-text;
   }
+}
+
+.nav-section-arrow {
+  flex-shrink: 0;
+  transition: transform $transition-fast;
+
+  &.collapsed {
+    transform: rotate(-90deg);
+  }
+}
+
+.nav-section-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 :deep(.profile-selector) {
