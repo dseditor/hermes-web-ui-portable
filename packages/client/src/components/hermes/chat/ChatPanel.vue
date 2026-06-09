@@ -1361,6 +1361,9 @@ async function handleSessionModelCustomSubmit() {
   display: flex;
   height: 100%;
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .session-model-search {
@@ -1889,6 +1892,8 @@ async function handleSessionModelCustomSubmit() {
   display: flex;
   overflow: hidden;
   position: relative;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .chat-main-content {

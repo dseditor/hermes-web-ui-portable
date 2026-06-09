@@ -68,6 +68,7 @@ defineExpose({ scrollToBottom })
 
 <template>
     <VirtualMessageList
+        class="group-message-list"
         ref="listRef"
         :messages="displayMessages"
         :estimated-item-height="170"
@@ -101,6 +102,11 @@ defineExpose({ scrollToBottom })
 
 <style scoped lang="scss">
 @use "@/styles/variables" as *;
+
+.group-message-list {
+    min-width: 0;
+    max-width: 100%;
+}
 
 .empty-state {
     flex: 1;

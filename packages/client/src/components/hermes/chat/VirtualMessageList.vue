@@ -426,6 +426,8 @@ defineExpose({
 .virtual-message-list-host {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   position: relative;
   animation: message-list-fade-in 1.5s ease both;
@@ -434,6 +436,8 @@ defineExpose({
 .virtual-message-list {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   padding: var(--virtual-list-padding);
   box-sizing: border-box;
   background-color: $bg-card;
@@ -445,6 +449,8 @@ defineExpose({
 
 .virtual-row {
   box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   padding-bottom: var(--virtual-row-gap);
 }
 
