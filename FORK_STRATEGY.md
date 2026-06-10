@@ -105,8 +105,28 @@ npx vue-tsc -b && npx vite build
 
 > 移植原則：逐一 cherry-pick，每個都跑三層驗證再進下一個 —— `vue-tsc -b`、`vite build`、`tsc -p packages/server/tsconfig.json`。碰 server 的還要 `node scripts/build-server.mjs` 重建 dist/server，且**重啟 :8648 進程**才生效。
 
+## 0.6.11–0.6.13 候選（第 2 層，2026-06-10 評估）
+
+上游已到 **0.6.13**（落後約 171 commits，過半是 desktop/打包，無關）。本輪導入：
+
+| Commit | 功能 | 風險 | 狀態 |
+|--------|------|------|------|
+| 5a4e64a #1445 | 聊天程式碼換行 | 低 | ✅ 移植 `561ded0`（衝突手解：捨棄我們沒有的 `hljs-unified-diff` 區塊，保留 ①容器 box-sizing/width ②`code.hljs` pre-wrap 換行）|
+| 77c06a7 #1376 | 檔案列表欄位對齊（flex→grid）| 中 | ✅ 移植 `11e18fe`（3 處衝突手解：保留我方縮圖/PDF 增強＋`file-name-text` 命名，吸收 grid 對齊與 `min-width:0`）|
+| 808aec7 #1392 | bundled skill 注入衝突保護 | 中 | ✅ 移植 `f1b2e71`（skill-injector.ts 乾淨套用；README/docs/website-i18n 衝突一律 `--ours`）|
+| bfa0c53 #1360 | skill 使用統計來源修正 | 中高 | ✅ 移植 `a372fa8`（sessions-db.ts 278 行**乾淨套用**，未分歧；getSkillUsageStatsFromDb 仍匯出）|
+| 498bbeb #1432 | cron 任務帶 profile | 中 | ✅ 移植 `68a9c18`（jobs.ts 乾淨套用）|
+| 4a7ace0 #1377 | markdown 內嵌本地音訊連結 | 中 | ✅ 移植 `f419a9e`（MarkdownRenderer.vue 乾淨套用）|
+| c7a1441 #1452 | 手機聊天訊息溢出修正 | 中 | ✅ 移植 `a5bb71a`（6 個 chat 元件乾淨套用）|
+| fc1949f #1454 | skill import 檔名編碼防護 | — | ⏭️ **SKIP 不適用**：修的是 `readMultipartBody/parsePart`，我們 fork 的 skills.ts 完全沒有 multipart import 實作（結構不同），無對應函式可套 |
+
+**未導入（大型/立場衝突，待主人單獨評估）**：語音堆疊 STT+TTS+MiMo（#1396/#1353，動 providers 凍結層、規模大）、remote/LAN 配對（#1384/#1369，Layer 1 portable 基建）、Atlas Cloud provider preset（#1424，比照 apikey.fun 跳過）、per-session reasoning effort（#1417，要先確認與「context 長度自控」#1184 不衝突）、Kanban parity（#1418）。
+
+> 教訓：對「小修復藏在大分歧檔」的 commit（如 fc1949f），別硬解 380 行衝突——先看 `git show <c> -- <file>` 抓真正改的幾行，我們有對應函式才手動套、沒有就 skip。
+
 ## 移植記錄
 
+- **2026-06-10**：(1) 自有修復 `d9c5484` skill 檔案列表過濾打包 venv（`listFilesRecursive` 加可選忽略參數，只在顯示路徑啟用、不動 dirHash；listFiles 上限 200＋truncated 提示）。(2) 完成半成品 `d741751` browser 設定分頁（補齊缺失的 zh.ts i18n，en/zh-TW 早已有）。(3) 從 0.6.11–0.6.13 移植 7 個綠色內頁功能（上表 ✅），SKIP 1 個不適用。共同祖先仍 `8dbf4c7`。四層驗證全綠（server tsc / vue-tsc / vite build / build-server）。
 - **2026-06-04**：從 0.6.10 移植 6 個內頁功能（上表 ✅）。共同祖先仍是 `8dbf4c7`（用 cherry-pick 未動 merge-base）。三層編譯全綠。衝突兩處均手解：#1236 providers.ts 保留我方清單、#1263 ru.ts 保持刪除（fork 不含俄文）。
 
 ## 未來想法（backlog，待研究）
