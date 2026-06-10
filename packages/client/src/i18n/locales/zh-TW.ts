@@ -619,6 +619,7 @@ export default {
     noSkills: '目前無技能',
     backTo: '返回',
     attachedFiles: '附件檔案',
+    filesTruncated: '（顯示 {shown} / {total} 個，已隱藏打包的 venv／相依套件檔案）',
     loadFailed: '載入技能失敗',
     fileLoadFailed: '載入檔案失敗',
     modified: '使用者已修改',

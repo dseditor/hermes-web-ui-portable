@@ -96,9 +96,15 @@ export async function fetchSkillContent(skillPath: string): Promise<string> {
   return res.content
 }
 
-export async function fetchSkillFiles(category: string, skill: string): Promise<SkillFileEntry[]> {
-  const res = await request<{ files: SkillFileEntry[] }>(`/api/hermes/skills/${category}/${skill}/files`)
-  return res.files
+export interface SkillFilesResult {
+  files: SkillFileEntry[]
+  truncated?: boolean
+  totalFiles?: number
+}
+
+export async function fetchSkillFiles(category: string, skill: string): Promise<SkillFilesResult> {
+  const res = await request<SkillFilesResult>(`/api/hermes/skills/${category}/${skill}/files`)
+  return { files: res.files, truncated: res.truncated, totalFiles: res.totalFiles }
 }
 
 export async function fetchMemory(): Promise<MemoryData> {

@@ -5,6 +5,7 @@ import { createHash } from 'crypto'
 import {
   readConfigYamlForProfile, updateConfigYamlForProfile,
   safeReadFile, extractDescription, listFilesRecursive,
+  SKILL_FILE_IGNORE_DIRS, SKILL_FILE_IGNORE_EXT,
 } from '../../services/config-helpers'
 import type { SkillSource } from '../../services/config-helpers'
 import { isPathWithin } from '../../services/hermes/hermes-path'
@@ -461,9 +462,17 @@ export async function listFiles(ctx: any) {
       ctx.body = { error: 'Skill not found' }
       return
     }
-    const allFiles = await listFilesRecursive(skillDir, '')
-    const files = allFiles.filter((f: any) => f.path !== 'SKILL.md')
-    ctx.body = { files }
+    // Skip bundled venv / dependency-cache dirs so a skill that ships its own
+    // virtualenv doesn't flood the listing with tens of thousands of files.
+    const allFiles = await listFilesRecursive(skillDir, '', {
+      ignoreDirs: SKILL_FILE_IGNORE_DIRS,
+      ignoreExt: SKILL_FILE_IGNORE_EXT,
+    })
+    const FILE_LIST_CAP = 200
+    const filtered = allFiles.filter((f: any) => f.path !== 'SKILL.md')
+    const files = filtered.slice(0, FILE_LIST_CAP)
+    const truncated = filtered.length > FILE_LIST_CAP
+    ctx.body = { files, truncated, totalFiles: filtered.length }
   } catch (err: any) {
     ctx.status = 500
     ctx.body = { error: err.message }

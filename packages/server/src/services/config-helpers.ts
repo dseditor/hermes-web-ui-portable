@@ -1,7 +1,7 @@
 import { readFile, chmod } from 'fs/promises'
 import { readdir, stat } from 'fs/promises'
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { join, extname } from 'path'
 import { getActiveProfileDir, getActiveConfigPath, getActiveEnvPath, getProfileDir } from './hermes/hermes-profile'
 import { logger } from './logger'
 import { safeFileStore } from './safe-file-store'
@@ -210,7 +210,36 @@ export function extractDescription(content: string): string {
   return ''
 }
 
-export async function listFilesRecursive(dir: string, prefix: string): Promise<{ path: string; name: string }[]> {
+/**
+ * Directories that bloat a skill's file listing without being part of the skill
+ * itself (bundled virtualenvs, dependency caches, VCS metadata). When a custom
+ * skill ships a `venv/` it can contain tens of thousands of files and flood the UI.
+ */
+export const SKILL_FILE_IGNORE_DIRS = new Set([
+  'node_modules', 'venv', '.venv', 'env', '.env', 'virtualenv',
+  'site-packages', '__pycache__', '.git', '.svn', '.hg',
+  '.mypy_cache', '.pytest_cache', '.ruff_cache', '.tox', '.eggs',
+  'dist', 'build', '.idea', '.vscode', '.cache', '.next',
+])
+
+/** Compiled / binary artifacts that are noise in a skill file listing. */
+export const SKILL_FILE_IGNORE_EXT = new Set([
+  '.pyc', '.pyo', '.pyd', '.so', '.o', '.a', '.obj',
+  '.dll', '.dylib', '.bin', '.class', '.lock',
+])
+
+interface ListFilesOpts {
+  /** Directory names to skip entirely (not recursed into). */
+  ignoreDirs?: Set<string>
+  /** Lowercased file extensions (incl. dot) to omit from the result. */
+  ignoreExt?: Set<string>
+}
+
+export async function listFilesRecursive(
+  dir: string,
+  prefix: string,
+  opts?: ListFilesOpts,
+): Promise<{ path: string; name: string }[]> {
   const result: { path: string; name: string }[] = []
   let entries
   try {
@@ -221,8 +250,10 @@ export async function listFilesRecursive(dir: string, prefix: string): Promise<{
   for (const entry of entries) {
     const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
     if (entry.isDirectory()) {
-      result.push(...await listFilesRecursive(join(dir, entry.name), relPath))
+      if (opts?.ignoreDirs?.has(entry.name)) continue
+      result.push(...await listFilesRecursive(join(dir, entry.name), relPath, opts))
     } else {
+      if (opts?.ignoreExt?.has(extname(entry.name).toLowerCase())) continue
       result.push({ path: relPath, name: entry.name })
     }
   }

@@ -24,6 +24,8 @@ const emit = defineEmits<{
 
 const content = ref('')
 const files = ref<SkillFileEntry[]>([])
+const filesTruncated = ref(false)
+const filesTotal = ref(0)
 const loading = ref(false)
 const fileContent = ref('')
 const viewingFile = ref<string | null>(null)
@@ -34,6 +36,8 @@ async function loadSkill() {
   viewingFile.value = null
   fileContent.value = ''
   files.value = []
+  filesTruncated.value = false
+  filesTotal.value = 0
   content.value = ''
   try {
     const skillPath = `${props.category}/${props.skill}/SKILL.md`
@@ -42,7 +46,9 @@ async function loadSkill() {
       fetchSkillFiles(props.category, props.skill),
     ])
     content.value = skillContent
-    files.value = skillFiles.filter(f => !f.isDir && f.path !== 'SKILL.md')
+    files.value = skillFiles.files.filter(f => !f.isDir && f.path !== 'SKILL.md')
+    filesTruncated.value = skillFiles.truncated ?? false
+    filesTotal.value = skillFiles.totalFiles ?? files.value.length
   } catch (err: any) {
     content.value = t('skills.loadFailed') + `: ${err.message}`
   } finally {
@@ -146,7 +152,12 @@ watch(() => `${props.category}/${props.skill}`, loadSkill, { immediate: true })
 
       <!-- Attached files -->
       <div v-if="!viewingFile && files.length > 0" class="detail-files">
-        <div class="files-header">{{ t('skills.attachedFiles') }}</div>
+        <div class="files-header">
+          {{ t('skills.attachedFiles') }}
+          <span v-if="filesTruncated" class="files-truncated">
+            {{ t('skills.filesTruncated', { shown: files.length, total: filesTotal }) }}
+          </span>
+        </div>
         <div class="files-list">
           <button
             v-for="f in files"
@@ -320,6 +331,15 @@ watch(() => `${props.category}/${props.skill}`, loadSkill, { immediate: true })
   text-transform: uppercase;
   letter-spacing: 0.3px;
   margin-bottom: 6px;
+}
+
+.files-truncated {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: $text-muted;
+  opacity: 0.8;
+  margin-left: 6px;
 }
 
 .files-list {

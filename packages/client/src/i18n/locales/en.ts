@@ -619,6 +619,7 @@ export default {
     noSkills: 'No skills found',
     backTo: 'Back to',
     attachedFiles: 'Attached Files',
+    filesTruncated: '(showing {shown} of {total} — bundled venv / dependency files hidden)',
     loadFailed: 'Failed to load skill',
     fileLoadFailed: 'Failed to load file',
     modified: 'Modified',
