@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/stores/hermes/settings";
 import DisplaySettings from "@/components/hermes/settings/DisplaySettings.vue";
 import AgentSettings from "@/components/hermes/settings/AgentSettings.vue";
 import MemorySettings from "@/components/hermes/settings/MemorySettings.vue";
+import BrowserSettings from "@/components/hermes/settings/BrowserSettings.vue";
 import CompressionSettings from "@/components/hermes/settings/CompressionSettings.vue";
 import SessionSettings from "@/components/hermes/settings/SessionSettings.vue";
 import PrivacySettings from "@/components/hermes/settings/PrivacySettings.vue";
@@ -35,6 +36,7 @@ const validTabs = computed(() => new Set([
   "display",
   "agent",
   "memory",
+  "browser",
   "compression",
   "session",
   "privacy",
@@ -100,6 +102,9 @@ onMounted(() => {
           </NTabPane>
           <NTabPane name="memory" :tab="t('settings.tabs.memory')">
             <MemorySettings />
+          </NTabPane>
+          <NTabPane name="browser" :tab="t('settings.tabs.browser')">
+            <BrowserSettings />
           </NTabPane>
           <NTabPane name="compression" :tab="t('settings.tabs.compression')">
             <CompressionSettings />

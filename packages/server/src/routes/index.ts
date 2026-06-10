@@ -20,6 +20,7 @@ import { memoryRoutes } from './hermes/memory'
 import { modelRoutes } from './hermes/models'
 import { providerRoutes } from './hermes/providers'
 import { configRoutes } from './hermes/config'
+import { browserRoutes } from './hermes/browser'
 import { logRoutes } from './hermes/logs'
 import { codexAuthRoutes } from './hermes/codex-auth'
 import { nousAuthRoutes } from './hermes/nous-auth'
@@ -70,6 +71,7 @@ export function registerRoutes(app: any, authMiddleware: Array<(ctx: Context, ne
   app.use(modelRoutes.routes())
   app.use(providerRoutes.routes())
   app.use(configRoutes.routes())
+  app.use(browserRoutes.routes())
   app.use(logRoutes.routes())
   app.use(codexAuthRoutes.routes())
   app.use(nousAuthRoutes.routes())

@@ -10,6 +10,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const display = ref<DisplayConfig>({})
   const agent = ref<AgentConfig>({})
   const memory = ref<MemoryConfig>({})
+  const browser = ref<Record<string, any>>({})
   const compression = ref<CompressionConfig>({})
   const sessionReset = ref<SessionResetConfig>({})
   const privacy = ref<PrivacyConfig>({})
@@ -34,6 +35,7 @@ export const useSettingsStore = defineStore('settings', () => {
       display.value = data.display || {}
       agent.value = data.agent || {}
       memory.value = data.memory || {}
+      browser.value = data.browser || {}
       compression.value = data.compression || {}
       sessionReset.value = data.session_reset || {}
       privacy.value = data.privacy || {}
@@ -62,6 +64,7 @@ export const useSettingsStore = defineStore('settings', () => {
       case 'display': display.value = { ...display.value, ...values }; break
       case 'agent': agent.value = { ...agent.value, ...values }; break
       case 'memory': memory.value = { ...memory.value, ...values }; break
+      case 'browser': browser.value = { ...browser.value, ...values }; break
       case 'compression': compression.value = { ...compression.value, ...values }; break
       case 'session_reset': sessionReset.value = { ...sessionReset.value, ...values }; break
       case 'privacy': privacy.value = { ...privacy.value, ...values }; break
@@ -97,6 +100,7 @@ export const useSettingsStore = defineStore('settings', () => {
       case 'display': display.value = { ...display.value, ...values }; break
       case 'agent': agent.value = { ...agent.value, ...values }; break
       case 'memory': memory.value = { ...memory.value, ...values }; break
+      case 'browser': browser.value = { ...browser.value, ...values }; break
       case 'compression': compression.value = { ...compression.value, ...values }; break
       case 'session_reset': sessionReset.value = { ...sessionReset.value, ...values }; break
       case 'privacy': privacy.value = { ...privacy.value, ...values }; break
@@ -130,7 +134,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     loading, saving,
-    display, agent, memory, compression, sessionReset, privacy, approvals,
+    display, agent, memory, browser, compression, sessionReset, privacy, approvals,
     telegram, discord, slack, whatsapp, matrix, wecom, feishu, dingtalk, qqbot, weixin, line, platforms,
     fetchSettings, saveSection, updateLocal,
   }
